@@ -1,5 +1,6 @@
+// src/components/Header.tsx
 import { useAuth } from '../contexts/AuthContext';
-import { Sparkles, User, LogOut } from 'lucide-react';
+import { Sparkles, User, LogOut, DollarSign } from 'lucide-react'; // <-- 1. Importar o ícone
 import { useState } from 'react';
 
 export default function Header() {
@@ -31,21 +32,34 @@ export default function Header() {
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-2">
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-2">
                 <a
                   href="/profile"
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 transition"
+                  className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 transition"
                   onClick={() => setMenuOpen(false)}
                 >
                   <User size={16} className="text-slate-600" />
                   <span className="text-sm text-slate-700">Meu Perfil</span>
                 </a>
+                
+                {/* --- 2. ADICIONAR O NOVO LINK AQUI --- */}
+                <a
+                  href="/tariffs"
+                  className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 transition"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <DollarSign size={16} className="text-slate-600" />
+                  <span className="text-sm text-slate-700">Meus Tarifários</span>
+                </a>
+                
+                <div className="border-t border-slate-100 my-1"></div>
+
                 <button
                   onClick={() => {
                     setMenuOpen(false);
                     signOut();
                   }}
-                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-slate-50 transition text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-50 transition text-left"
                 >
                   <LogOut size={16} className="text-slate-600" />
                   <span className="text-sm text-slate-700">Sair</span>

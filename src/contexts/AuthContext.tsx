@@ -1,11 +1,21 @@
+// frontend/src/contexts/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+// Nova interface para os dados de signUp para incluir os novos campos
+interface SignUpData {
+  email: string;
+  password: string;
+  hotelName: string;
+  accommodationType: string;
+  starRating: number;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, hotelName: string) => Promise<{ error: AuthError | null }>;
+  signUp: (data: SignUpData) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
 }
@@ -23,29 +33,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      (async () => {
-        setUser(session?.user ?? null);
-      })();
+      setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, hotelName: string) => {
+  // Função signUp atualizada para receber um objeto com todos os dados
+  const signUp = async ({ email, password, hotelName, accommodationType, starRating }: SignUpData) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
 
+    // Se o utilizador foi criado com sucesso, insere o perfil completo
     if (!error && data.user) {
       const { error: profileError } = await supabase
         .from('user_profiles')
         .insert({
           id: data.user.id,
           hotel_name: hotelName,
+          accommodation_type: accommodationType, // Novo campo
+          star_rating: starRating,             // Novo campo
         });
 
       if (profileError) {
+        // Se houver um erro no perfil, retorna-o para ser tratado na UI
         return { error: profileError as any };
       }
     }
@@ -58,7 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
-
     return { error };
   };
 
