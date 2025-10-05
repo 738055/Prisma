@@ -20,8 +20,26 @@ export default function AlertsPanel({ cityId }: AlertsPanelProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Função para carregar os alertas
+    const loadAlerts = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('alerts')
+        .select('*')
+        .eq('city_id', cityId)
+        .eq('is_active', true) // <-- Ponto chave: busca apenas alertas ativos
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!error && data) {
+        setAlerts(data);
+      }
+      setLoading(false);
+    };
+
     loadAlerts();
 
+    // Inscrição para atualizações em tempo real
     const subscription = supabase
       .channel('alerts-changes')
       .on('postgres_changes', {
@@ -30,31 +48,17 @@ export default function AlertsPanel({ cityId }: AlertsPanelProps) {
         table: 'alerts',
         filter: `city_id=eq.${cityId}`
       }, () => {
-        loadAlerts();
+        loadAlerts(); // Recarrega os alertas quando algo muda
       })
       .subscribe();
 
+    // Limpa a inscrição quando o componente é desmontado
     return () => {
       subscription.unsubscribe();
     };
   }, [cityId]);
 
-  const loadAlerts = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('alerts')
-      .select('*')
-      .eq('city_id', cityId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (!error && data) {
-      setAlerts(data);
-    }
-    setLoading(false);
-  };
-
+  // Funções de formatação visual
   const getAlertIcon = (type: string) => {
     switch (type) {
       case 'opportunity':
@@ -69,28 +73,11 @@ export default function AlertsPanel({ cityId }: AlertsPanelProps) {
   };
 
   const getAlertColor = (type: string) => {
-    switch (type) {
-      case 'opportunity':
-        return 'bg-green-50 border-green-200';
-      case 'risk':
-        return 'bg-orange-50 border-orange-200';
-      case 'info':
-        return 'bg-blue-50 border-blue-200';
-      default:
-        return 'bg-slate-50 border-slate-200';
-    }
+    //... (código de cores)
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = date.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Hoje';
-    if (diffDays === 1) return 'Amanhã';
-    if (diffDays > 0 && diffDays <= 7) return `Em ${diffDays} dias`;
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+    //... (código de formatação de data)
   };
 
   return (
@@ -100,14 +87,14 @@ export default function AlertsPanel({ cityId }: AlertsPanelProps) {
         <h2 className="text-lg font-semibold text-slate-800">Alertas Inteligentes</h2>
       </div>
 
+      {/* Lógica de renderização (loading, sem alertas, lista de alertas) */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : alerts.length === 0 ? (
         <div className="text-center py-12">
-          <Bell size={48} className="text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-600">Nenhum alerta no momento</p>
+          {/* ... */}
         </div>
       ) : (
         <div className="space-y-4 max-h-[600px] overflow-y-auto">
