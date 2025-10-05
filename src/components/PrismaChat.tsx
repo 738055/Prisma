@@ -1,56 +1,51 @@
-// Exemplo em um componente React (src/components/PrismaChat.tsx)
+// src/components/PrismaChat.tsx (VERSÃO AJUSTADA)
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase'; // Importe seu cliente supabase
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { Sparkles, Loader2 } from 'lucide-react';
 
-function PrismaChat() {
+// Adicione cityId às props para dar contexto ao chat
+interface PrismaChatProps {
+  cityId: string | null;
+}
+
+function PrismaChat({ cityId }: PrismaChatProps) {
+  const { user } = useAuth();
   const [message, setMessage] = useState('');
-  const [threadId, setThreadId] = useState<string | null>(null);
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Esta função é chamada quando o formulário é enviado
   const handleSubmit = async (e: React.FormEvent) => {
-    // 1. Previne a navegação padrão do formulário
     e.preventDefault();
-    if (!message || isLoading) return;
+    if (!message || isLoading || !user) return;
+    
+    // Validação para garantir que uma cidade está selecionada
+    if (!cityId) {
+      setError("Por favor, selecione uma cidade antes de perguntar.");
+      return;
+    }
 
     setIsLoading(true);
     setResponse('');
+    setError('');
 
     try {
-      // 2. Pega o token de autenticação do usuário logado
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Usuário não autenticado.");
-      }
-
-      // 3. Faz a CHAMADA DE API em segundo plano com 'fetch'
-      const apiResponse = await fetch('http://localhost:3001/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Envia o token para a API segura
-          'Authorization': `Bearer ${session.access_token}`,
-        },
+      // Chamada direta para a nova Edge Function do Supabase
+      const { data, error: funcError } = await supabase.functions.invoke('prisma-chat-api', {
         body: JSON.stringify({
-          message,
-          threadId,
+          userQuery: message,
+          cityId: cityId, // Enviando o ID da cidade
         }),
       });
 
-      if (!apiResponse.ok) {
-        const errorData = await apiResponse.json();
-        throw new Error(errorData.error || 'A resposta da API falhou.');
-      }
+      if (funcError) throw new Error(funcError.message);
+      if (data.error) throw new Error(data.error);
 
-      const data = await apiResponse.json();
-      
-      // 4. Atualiza o estado do componente com a resposta
       setResponse(data.response);
-      setThreadId(data.threadId);
 
     } catch (error: any) {
-      setResponse(`Erro: ${error.message}`);
+      setError(`Erro: ${error.message}`);
     } finally {
       setIsLoading(false);
       setMessage('');
@@ -58,22 +53,25 @@ function PrismaChat() {
   };
 
   return (
-    <div>
-      {/* O formulário usa onSubmit para chamar a função handleSubmit */}
-      <form onSubmit={handleSubmit}>
+    <div className="bg-white rounded-2xl shadow-sm p-6 mt-8">
+      <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+        <Sparkles /> Assistente de Análise Prisma
+      </h2>
+      <form onSubmit={handleSubmit} className="flex gap-2">
         <input
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Qual a demanda para Gramado no Natal?"
+          placeholder="Qual a demanda para o Natal?"
+          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          disabled={!cityId}
         />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Analisando...' : 'Perguntar ao Prisma'}
+        <button type="submit" disabled={isLoading || !cityId} className="bg-blue-600 text-white font-semibold py-3 px-6 rounded-md hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2">
+          {isLoading ? <Loader2 className="animate-spin" /> : 'Perguntar'}
         </button>
       </form>
-      <div>
-        <p>{response}</p>
-      </div>
+      {error && <p className="text-red-600 mt-2">{error}</p>}
+      {response && <div className="mt-4 p-4 border rounded-lg bg-slate-50 prose prose-slate max-w-none"><p>{response}</p></div>}
     </div>
   );
 }
