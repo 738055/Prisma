@@ -80,6 +80,7 @@ function RoomTypesManager({ roomTypes, loadData, onError }: { roomTypes: RoomTyp
 }
 
 export default function TariffPage() {
+  const { user } = useAuth(); // <-- Adicionado para obter o usuário
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,8 +92,10 @@ export default function TariffPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    loadAllData();
-  }, []);
+    if (user) { // <-- Garante que o usuário existe antes de carregar
+        loadAllData();
+    }
+  }, [user]);
 
   const setErrorMessage = (msg: string) => {
       setError(msg);
@@ -100,10 +103,12 @@ export default function TariffPage() {
   }
 
   const loadAllData = async () => {
+    if (!user) return; // <-- Adiciona verificação de segurança
     setLoading(true);
+    // --- CORREÇÃO AQUI: Adicionado filtro por user_id ---
     const [tariffsRes, roomTypesRes] = await Promise.all([
-      supabase.from('user_tariffs').select(`*, room_types ( name )`).order('start_date', { ascending: false }),
-      supabase.from('room_types').select('*').order('name')
+      supabase.from('user_tariffs').select(`*, room_types ( name )`).eq('user_id', user.id).order('start_date', { ascending: false }),
+      supabase.from('room_types').select('*').eq('user_id', user.id).order('name')
     ]);
 
     if (tariffsRes.error || roomTypesRes.error) {
@@ -117,9 +122,18 @@ export default function TariffPage() {
 
   const handleSubmitTariff = async (e: FormEvent) => {
     e.preventDefault();
-    if (!startDate || !endDate || !price || !selectedRoomTypeId) return;
+    if (!startDate || !endDate || !price || !selectedRoomTypeId || !user) return; // <-- Adiciona verificação de usuário
     setIsSubmitting(true);
-    const { error } = await supabase.from('user_tariffs').insert({ start_date: startDate, end_date: endDate, price: Number(price), room_type_id: selectedRoomTypeId });
+    
+    // --- CORREÇÃO AQUI: Adicionado user_id no objeto de inserção ---
+    const { error } = await supabase.from('user_tariffs').insert({ 
+        start_date: startDate, 
+        end_date: endDate, 
+        price: Number(price), 
+        room_type_id: selectedRoomTypeId,
+        user_id: user.id 
+    });
+
     if (error) {
         if (error.message.includes('overlapping')) {
             setErrorMessage('Erro: Conflito de datas para o mesmo tipo de quarto.');
