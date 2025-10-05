@@ -1,96 +1,96 @@
-// supabase/functions/agent-run-weekly-analysis/index.ts (VERSÃO FINAL E COMPLETA)
+// supabase/functions/agent-run-weekly-analysis/index.ts (VERSÃO VIGIA - CORRIGIDA)
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@^2';
-import OpenAI from 'https://esm.sh/openai@4.19.0';
-import type { ChatCompletionMessageParam, ChatCompletionTool } from 'https://esm.sh/openai@4.19.0/resources/chat/completions';
 
-const openai = new OpenAI({ apiKey: Deno.env.get('OPENAI_API_KEY')! });
+const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+const SERPAPI_API_KEY = Deno.env.get('SERPAPI_API_KEY');
 
-async function find_local_events(query: string): Promise<string> {
-  const SERPAPI_API_KEY = Deno.env.get('SERPAPI_API_KEY');
-  if (!SERPAPI_API_KEY) throw new Error("SERPAPI_API_KEY não configurada no ambiente.");
-  const url = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(query)}&api_key=${SERPAPI_API_KEY}`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`API de Eventos falhou com status: ${response.status}`);
-  const results = await response.json();
-  return JSON.stringify(results.events_results || []);
+// Ferramenta para raspar preços de hotéis para uma data futura
+async function scrape_future_hotel_prices(city_name: string, check_in_date: string): Promise<any[]> {
+    if (!SERPAPI_API_KEY) throw new Error("SERPAPI_API_KEY não configurada.");
+    const check_out_date = new Date(check_in_date);
+    check_out_date.setDate(check_out_date.getDate() + 1);
+    const url = `https://serpapi.com/search.json?engine=google_hotels&q=hotels in ${encodeURIComponent(city_name)}&check_in_date=${check_in_date}&check_out_date=${check_out_date.toISOString().split('T')[0]}&api_key=${SERPAPI_API_KEY}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        console.error(`[Vigia] Falha ao raspar preços de hotéis para ${check_in_date}`);
+        return [];
+    }
+    const results = await response.json();
+    return results.properties || [];
 }
 
-serve(async (_req) => {
-  try {
-    console.log("[Agente Semanal] Iniciando ciclo de análise com Web Search.");
-    const { data: cities, error: citiesError } = await supabaseAdmin.from('cities').select('id, name, state');
-    if (citiesError) throw citiesError;
-
-    for (const city of cities) {
-      console.log(`[Agente Semanal] Processando cidade: ${city.name}`);
-      const startDate = new Date();
-      const year = startDate.getFullYear();
-
-      const messages: ChatCompletionMessageParam[] = [{
-        role: 'system',
-        content: `Você é um analista de dados. Use a ferramenta de pesquisa para encontrar eventos, feriados e congressos para '${city.name}, ${city.state}' para os próximos 90 dias (foco no ano ${year}). Com base nos resultados, gere um objeto JSON com as chaves "events" (contendo title, event_date, source, event_type e impact_score) e "alerts" (contendo alert_type, title, message, target_date).`
-      }];
-
-      const tools: ChatCompletionTool[] = [{
-        type: 'function',
-        function: { name: 'find_local_events', description: `Pesquisa por eventos em ${city.name} para ${year}.`, parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
-      }];
-
-      let response = await openai.chat.completions.create({ model: 'gpt-4o', messages, tools, tool_choice: 'auto', response_format: { type: "json_object" } });
-      let responseMessage = response.choices[0].message;
-
-      if (responseMessage.tool_calls) {
-        messages.push(responseMessage);
-        for (const toolCall of responseMessage.tool_calls) {
-          const searchResult = await find_local_events(JSON.parse(toolCall.function.arguments).query);
-          messages.push({ tool_call_id: toolCall.id, role: 'tool', name: toolCall.function.name, content: searchResult });
-        }
-        const secondResponse = await openai.chat.completions.create({ model: 'gpt-4o', messages, response_format: { type: "json_object" } });
-        responseMessage = secondResponse.choices[0].message;
-      }
-      
-      const { events = [], alerts = [] } = JSON.parse(responseMessage.content || '{}');
-      
-      // --- LÓGICA COMPLETA PARA POPULAR AS TABELAS ---
-      
-      if (events.length > 0) {
-        const eventsToSave = events.map((e: any) => ({ city_id: city.id, title: e.title, event_date: e.event_date, event_type: e.event_type || 'other', impact_score: e.impact_score || 5, source: e.source }));
-        await supabaseAdmin.from('events').upsert(eventsToSave, { onConflict: 'title, event_date' });
-        console.log(`[Agente Semanal] ${events.length} eventos salvos para ${city.name}.`);
-      }
-      
-      if (alerts.length > 0) {
-        await supabaseAdmin.from('alerts').update({ is_active: false }).eq('city_id', city.id);
-        const alertsToSave = alerts.map((a: any) => ({ city_id: city.id, alert_type: a.alert_type, title: a.title, message: a.message, target_date: a.target_date, is_active: true }));
-        await supabaseAdmin.from('alerts').insert(alertsToSave);
-        console.log(`[Agente Semanal] ${alerts.length} alertas salvos para ${city.name}.`);
-      }
-
-      const dates = Array.from({ length: 90 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
-      const eventsMap = new Map((events || []).map((e: any) => [e.event_date, e]));
-      const daily_predictions = dates.map(date => {
-        const dateString = formatDate(date);
-        const dayOfWeek = date.getDay();
-        if (eventsMap.has(dateString)) {
-          const event = eventsMap.get(dateString);
-          return { date: dateString, demand_level: (event.impact_score || 8) > 7 ? 'peak' : 'high', reasoning: `Evento: ${event.title}` };
-        }
-        if (dayOfWeek === 5 || dayOfWeek === 6) { return { date: dateString, demand_level: 'moderate', reasoning: 'Fim de semana' }; }
-        return { date: dateString, demand_level: 'low', reasoning: 'Dia de semana' };
-      });
-      
-      if (daily_predictions.length > 0) {
-        const predictionsToSave = daily_predictions.map((p: any) => ({ city_id: city.id, prediction_date: p.date, demand_level: p.demand_level, confidence_score: 0.95, factors: [{ type: "realtime_web_search", reason: p.reasoning }] }));
-        await supabaseAdmin.from('demand_predictions').upsert(predictionsToSave, { onConflict: 'city_id, prediction_date' });
-        console.log(`[Agente Semanal] ${daily_predictions.length} previsões de demanda salvas para ${city.name}.`);
-      }
+// Ferramenta para raspar preços de voos para uma data futura
+async function scrape_future_flight_prices(arrival_city: string, outbound_date: string): Promise<any[]> {
+    if (!SERPAPI_API_KEY) throw new Error("SERPAPI_API_KEY não configurada.");
+    const return_date = new Date(outbound_date);
+    return_date.setDate(return_date.getDate() + 5); // Uma estadia de 5 dias como referência
+    const url = `https://serpapi.com/search.json?engine=google_flights&departure_id=SAO&arrival_id=${encodeURIComponent(arrival_city)}&outbound_date=${outbound_date}&return_date=${return_date.toISOString().split('T')[0]}&api_key=${SERPAPI_API_KEY}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        console.error(`[Vigia] Falha ao raspar preços de voos para ${outbound_date}`);
+        return [];
     }
-    return new Response(JSON.stringify({ success: true, message: "Ciclo do Agente Semanal com Web Search concluído." }));
-  } catch (error) {
-    console.error("[Agente Semanal] Falha crítica no ciclo:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-  }
+    const results = await response.json();
+    return (results.best_flights || []).concat(results.other_flights || []);
+}
+
+
+serve(async (req) => {
+    // **A CORREÇÃO CRUCIAL ESTÁ AQUI**
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders });
+    }
+
+    try {
+        console.log("[Vigia] Iniciando ciclo de monitorização semanal de sinais futuros.");
+        const { data: cities, error: citiesError } = await supabaseAdmin.from('cities').select('id, name, state');
+        if (citiesError) throw citiesError;
+
+        const today = new Date();
+        const scraped_date = today.toISOString().split('T')[0];
+
+        for (const city of cities) {
+            console.log(`[Vigia] Processando cidade: ${city.name}`);
+            const future_periods_in_days = [30, 60, 90]; 
+
+            for (const days_ahead of future_periods_in_days) {
+                const target_date = new Date();
+                target_date.setDate(today.getDate() + days_ahead);
+                const target_date_str = target_date.toISOString().split('T')[0];
+
+                // 1. Recolher preços de concorrentes para a data futura
+                const competitor_prices = await scrape_future_hotel_prices(`${city.name}, ${city.state}`, target_date_str);
+                if (competitor_prices.length > 0) {
+                    const competitorsToSave = competitor_prices.filter((c: any) => c.name && c.price).map((c: any) => ({
+                        city_id: city.id, hotel_name: c.name,
+                        price: parseFloat(String(c.price).replace(/[^0-9.]+/g, '')),
+                        scraped_date: scraped_date, target_date: target_date_str,
+                        data_type: 'weekly_baseline'
+                    }));
+                    await supabaseAdmin.from('competitor_data').insert(competitorsToSave);
+                    console.log(`[Vigia] ${competitorsToSave.length} preços de concorrentes salvos para ${target_date_str}.`);
+                }
+
+                // 2. Recolher preços de voos para a data futura
+                const flight_prices = await scrape_future_flight_prices(city.name, target_date_str);
+                if (flight_prices.length > 0) {
+                    const flightsToSave = flight_prices.filter((f: any) => f.price).map((f: any) => ({
+                        city_id: city.id, scraped_date: scraped_date,
+                        origin_city_name: f.departure_airport?.name || 'Origem Principal',
+                        travel_date: target_date_str, avg_price: f.price,
+                        source: 'Google Flights Baseline'
+                    }));
+                    await supabaseAdmin.from('flight_data').insert(flightsToSave);
+                     console.log(`[Vigia] ${flightsToSave.length} preços de voos salvos para ${target_date_str}.`);
+                }
+            }
+        }
+        return new Response(JSON.stringify({ success: true, message: "Ciclo do Vigia concluído." }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+
+    } catch (error) {
+        console.error("[Vigia] Falha crítica no ciclo:", error);
+        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+    }
 });

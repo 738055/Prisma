@@ -1,23 +1,21 @@
 // src/pages/DashboardPage.tsx (VERSÃO FINAL E COMPLETA)
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import Calendar from '../components/Calendar';
-import AlertsPanel from '../components/AlertsPanel';
 import CitySelector from '../components/CitySelector';
-import DayDetailModal from '../components/DayDetailModal';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { MarketResearch } from '../components/MarketResearch';
-import PrismaChat from '../components/PrismaChat'; // 1. Importar o novo componente de chat
+import { StrategicDashboard } from '../components/StrategicDashboard';
+import { PeriodSearch } from '../components/PeriodSearch';
+import { Loader2 } from 'lucide-react';
 
 interface City { id: string; name: string; state: string; slug: string; }
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
-  const [clickedDate, setClickedDate] = useState<Date | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'7days' | '30days'>('7days');
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -29,7 +27,6 @@ export default function DashboardPage() {
         ]);
         if (citiesRes.data) {
             setCities(citiesRes.data);
-            // Define a cidade padrão do usuário ou a primeira da lista
             const userCity = citiesRes.data.find(c => c.id === profileRes.data?.city_id);
             setSelectedCity(userCity || citiesRes.data[0] || null);
         }
@@ -40,61 +37,50 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
         <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-slate-600">A carregar os seus dados...</p>
+            <Loader2 className="animate-spin text-blue-600 h-12 w-12 mx-auto mb-4" />
+            <p className="text-slate-600">A carregar a sua plataforma de inteligência...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-100">
       <Header />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {cities.length > 0 ? (
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {cities.length > 0 && selectedCity ? (
             <>
-                {/* Seletor de Cidades no topo */}
                 <CitySelector cities={cities} selectedCity={selectedCity} onCityChange={setSelectedCity} />
                 
-                {/* Pesquisador de Mercado Sob Demanda */}
-                <MarketResearch selectedCity={selectedCity} />
-
-                {/* 2. Adicionar o Assistente de IA, passando a cidade selecionada */}
-                <PrismaChat cityId={selectedCity ? selectedCity.id : null} />
-
-                {/* Conteúdo principal que depende da cidade selecionada */}
-                {selectedCity ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                        <div className="lg:col-span-2">
-                            <Calendar cityId={selectedCity.id} onDateClick={setClickedDate} />
-                        </div>
-                        <div className="lg:col-span-1">
-                            <AlertsPanel cityId={selectedCity.id} />
-                        </div>
+                <div className="bg-white rounded-2xl shadow-sm p-6">
+                    <div className="border-b border-slate-200 mb-6">
+                        <nav className="-mb-px flex space-x-6">
+                            <button onClick={() => setActiveTab('7days')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === '7days' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                                Próximos 7 Dias
+                            </button>
+                            <button onClick={() => setActiveTab('30days')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === '30days' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                                Próximo Mês
+                            </button>
+                        </nav>
                     </div>
-                ) : (
-                    <div className="text-center py-10 mt-8 bg-white rounded-lg shadow-sm">
-                        <p className="text-slate-600">Selecione uma cidade para ver o calendário e os alertas.</p>
-                    </div>
-                )}
+                    {activeTab === '7days' && <StrategicDashboard city={selectedCity} periodInDays={7} key={`7days-${selectedCity.id}`} />}
+                    {activeTab === '30days' && <StrategicDashboard city={selectedCity} periodInDays={30} key={`30days-${selectedCity.id}`} />}
+                </div>
+
+                <PeriodSearch city={selectedCity} />
             </>
         ) : (
             <div className="text-center py-20 bg-white rounded-2xl shadow-sm">
                 <h2 className="text-2xl font-bold text-slate-800 mb-4">Bem-vindo ao Prisma!</h2>
-                <p className="text-slate-600 mb-6">Parece que ainda não configurou o seu perfil.</p>
+                <p className="text-slate-600 mb-6">Comece por configurar o seu perfil para obter a sua primeira análise.</p>
                 <a href="/profile" className="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition">
-                  Configurar meu perfil
+                  Configurar Meu Perfil
                 </a>
             </div>
         )}
-      </div>
-
-      {/* Modal que abre ao clicar numa data do calendário */}
-      {clickedDate && selectedCity && (
-        <DayDetailModal date={clickedDate} cityId={selectedCity.id} onClose={() => setClickedDate(null)} />
-      )}
+      </main>
     </div>
   );
 }

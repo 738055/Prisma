@@ -1,20 +1,12 @@
-// src/components/MarketResearch.tsx
+// src/components/MarketResearch.tsx (VERSÃO FINAL E COMPLETA)
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Loader2, AlertTriangle } from 'lucide-react';
+import { Search, Loader2, AlertTriangle, ChevronsDown, ChevronsUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface City { id: string; name: string; }
-
-interface AnalysisResult {
-  final_report: string;
-}
-
-// A interface de props foi atualizada para deixar claro que selectedCity pode ser nulo
-interface MarketResearchProps {
-  selectedCity: City | null; 
-}
+interface MarketResearchProps { selectedCity: City | null; }
 
 export const MarketResearch = ({ selectedCity }: MarketResearchProps) => {
   const { user } = useAuth();
@@ -23,69 +15,46 @@ export const MarketResearch = ({ selectedCity }: MarketResearchProps) => {
   const [endDate, setEndDate] = useState(new Date(new Date().setDate(new Date().getDate() + 6)).toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ analysis: AnalysisResult } | null>(null);
+  const [result, setResult] = useState<{ analysis: { final_report: string } } | null>(null);
+  const [showFullReport, setShowFullReport] = useState(false);
 
   const handleSearch = async () => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    // Validação robusta ANTES de criar o payload
-    if (!user) {
-        setError("Erro de autenticação: Utilizador não encontrado. Por favor, faça login novamente.");
-        setLoading(false);
-        return;
-    }
-    if (!selectedCity) {
-        setError("Erro de dados: Nenhuma cidade selecionada. Por favor, selecione um destino.");
-        setLoading(false);
-        return;
-    }
-
-    const payload = { 
-        cityId: selectedCity.id, 
-        startDate, 
-        endDate, 
-        userId: user.id 
-    };
-
-    // PONTO CRÍTICO DE DEPURAÇÃO: Verifique o console do seu navegador para esta mensagem!
-    console.log("A enviar para a Edge Function:", payload);
-
-    // Validação final do payload para garantir que nenhum campo está vazio
-    for (const [key, value] of Object.entries(payload)) {
-        if (!value) {
-            setError(`Erro de Validação: O parâmetro '${key}' está em falta e não pode ser enviado.`);
-            setLoading(false);
-            console.error("Payload inválido:", payload);
-            return;
-        }
-    }
-
+    if (!user || !selectedCity) return;
+    setLoading(true); 
+    setError(null); 
+    setResult(null); 
+    setShowFullReport(false);
+    
     try {
-      // O corpo (body) da requisição precisa ser um objeto JSON stringificado
       const { data, error: funcError } = await supabase.functions.invoke('agent-run-on-demand', {
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ cityId: selectedCity.id, startDate, endDate, userId: user.id })
       });
-      
       if (funcError) throw new Error(funcError.message);
-
-      // Tratamento de erro vindo da função
-      if (data && data.error) {
-        throw new Error(data.error);
-      }
-      
-      // Se não houver erro, mas os dados forem inesperados
-      if (!data || !data.analysis) {
-        throw new Error("A resposta da função foi inválida ou não contém uma análise.");
-      }
-
+      if (data && data.error) throw new Error(data.error);
       setResult(data);
     } catch (e: any) {
-      setError(e.message || "Falha ao executar a análise. Tente novamente mais tarde.");
+      setError(e.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Função para extrair a seção mais acionável do relatório (o alerta ou o resumo)
+  const getReportSummary = (fullReport: string) => {
+    const sections = fullReport.split(/## |### /); // Divide por cabeçalhos Markdown (## ou ###)
+    
+    // Procura pelas seções mais importantes, em ordem de prioridade
+    const priorityKeywords = ['alerta e recomendações', 'ação imediata', 'oportunidade crítica', 'análise cruzada', 'resumo executivo'];
+    
+    for (const keyword of priorityKeywords) {
+      const alertSection = sections.find(s => s.trim().toLowerCase().startsWith(keyword));
+      if (alertSection) {
+        return `## ${alertSection.trim()}`;
+      }
+    }
+    
+    // Se não encontrar nenhuma seção prioritária, retorna a primeira seção significativa ou um trecho
+    return sections[1] ? `## ${sections[1].trim()}` : fullReport.substring(0, 500) + '...';
   };
 
   return (
@@ -107,18 +76,17 @@ export const MarketResearch = ({ selectedCity }: MarketResearchProps) => {
         </button>
       </div>
 
-      {error && (
-        <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-center gap-2">
-            <AlertTriangle /> 
-            {error}
-        </div>
-      )}
+      {error && <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-center gap-2"><AlertTriangle />{error}</div>}
       
       {result && (
         <div className="mt-6 p-4 border rounded-lg bg-slate-50">
             <article className="prose prose-slate max-w-none">
-                <ReactMarkdown>{result.analysis.final_report}</ReactMarkdown>
+                <ReactMarkdown>{showFullReport ? result.analysis.final_report : getReportSummary(result.analysis.final_report)}</ReactMarkdown>
             </article>
+            <button onClick={() => setShowFullReport(!showFullReport)} className="mt-4 text-blue-600 font-semibold text-sm flex items-center gap-1 hover:underline">
+                {showFullReport ? 'Ocultar Análise Completa' : 'Ver Análise Completa da IA'}
+                {showFullReport ? <ChevronsUp className="h-4 w-4"/> : <ChevronsDown className="h-4 w-4"/>}
+            </button>
         </div>
       )}
     </div>
