@@ -1,0 +1,15 @@
+# netlify.toml
+
+# Configurações de Build
+# Informa ao Netlify como construir o seu site a partir de um projeto Vite
+[build]
+  command = "npm run build"
+  publish = "dist"
+  base    = "/"
+
+# Regra de Redirecionamento para Single Page Applications (SPA)
+# Esta é a parte que resolve o erro "Page not found"
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
