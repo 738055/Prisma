@@ -4,11 +4,22 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+  throw new Error('As variáveis de ambiente do Supabase (URL e Chave Anon) não foram encontradas.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// --- ALTERAÇÃO PARA DEPURAÇÃO LOCAL ---
+// A opção 'functionsUrl' força o cliente Supabase a chamar as tuas Edge Functions
+// que estão a rodar localmente, em vez das que estão na nuvem.
+// Isto permite-nos ver os logs e erros em tempo real no teu terminal.
 
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  functionsUrl: 'http://localhost:54321', 
+});
+
+// --- FIM DA ALTERAÇÃO ---
+
+
+// Abaixo está o teu tipo 'Database' original, que deve ser mantido
 export type Database = {
   public: {
     Tables: {

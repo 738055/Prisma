@@ -2,9 +2,9 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
+import { useAuth } from '../contexts/AuthContext';
 import { DollarSign, BedDouble, Plus, Trash2, Calendar, AlertCircle } from 'lucide-react';
 
-// Interfaces para os nossos novos dados
 interface RoomType {
   id: string;
   name: string;
@@ -16,20 +16,24 @@ interface Tariff {
   end_date: string;
   price: number;
   room_type_id: string;
-  room_types: { name: string } | null; // Para mostrar o nome do quarto na lista
+  room_types: { name: string } | null;
 }
 
-// Componente para gerir Tipos de Quarto
 function RoomTypesManager({ roomTypes, loadData, onError }: { roomTypes: RoomType[], loadData: () => void, onError: (msg: string) => void }) {
   const [name, setName] = useState('');
   const [capacity, setCapacity] = useState<number | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name || !capacity) return;
+    if (!user) {
+        onError("Você precisa estar logado para adicionar um quarto.");
+        return;
+    }
     setIsSubmitting(true);
-    const { error } = await supabase.from('room_types').insert({ name, capacity: Number(capacity) });
+    const { error } = await supabase.from('room_types').insert({ name, capacity: Number(capacity), user_id: user.id });
     if (error) {
         onError("Erro ao adicionar quarto. O nome já pode existir.");
     } else {
@@ -75,14 +79,11 @@ function RoomTypesManager({ roomTypes, loadData, onError }: { roomTypes: RoomTyp
   );
 }
 
-// Componente Principal da Página
 export default function TariffPage() {
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Estados para o formulário de tarifas
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [price, setPrice] = useState<number | ''>('');
