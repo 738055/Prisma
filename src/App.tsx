@@ -1,13 +1,14 @@
+// src/App.tsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
-import SignUpPage from './pages/SignUpPage';
+// --- CORREÇÃO AQUI ---
+// Adicione chaves {} ao redor de SignUpPage
+import { SignUpPage } from './pages/SignUpPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import TariffPage from './pages/TariffPage';
 
-// --- CORREÇÃO AQUI: Definição do PrivateRoute ---
-// Este componente protege as rotas que só podem ser acedidas por utilizadores autenticados.
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -22,8 +23,6 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" />;
 }
 
-// --- CORREÇÃO AQUI: Definição do PublicRoute ---
-// Este componente protege as rotas que só podem ser acedidas por visitantes (não autenticados), como Login.
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -37,7 +36,6 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
   return !user ? <>{children}</> : <Navigate to="/dashboard" />;
 }
-
 
 function App() {
   return (
