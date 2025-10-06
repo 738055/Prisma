@@ -1,20 +1,23 @@
-// src/components/StrategicDashboard.tsx (VERSÃO FINAL ROBUSTA E COMPLETA)
+// src/components/StrategicDashboard.tsx
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Plane, Building2, Ticket, CheckCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Plane, Building2, Ticket, CheckCircle, Flame, Newspaper } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface City { id: string; name: string; }
 interface StrategicDashboardProps { city: City | null; periodInDays: number; }
 
+// Interface atualizada para receber a nova estrutura de dados
 interface StrategicAnalysis {
     report_markdown: string;
     avg_competitor_realtime: number;
     avg_competitor_baseline: number;
     avg_flight_realtime: number;
     avg_flight_baseline: number;
-    top_events: { title: string; date?: { start_date: string } }[];
+    top_events: { title: string }[];
+    social_buzz_signals: { content: string; source: string; impact_score: number }[];
+    top_news: { title: string; source: string }[];
 }
 
 function InfoCard({ icon, title, value, change, changeType }: { icon: React.ReactNode, title: string, value: string, change: string | null, changeType: 'increase' | 'decrease' | 'neutral' }) {
@@ -44,14 +47,20 @@ export const StrategicDashboard = ({ city, periodInDays }: StrategicDashboardPro
             
             const today = new Date();
             const analysisStartDate = new Date(today);
-            analysisStartDate.setDate(today.getDate() + periodInDays);
+            analysisStartDate.setDate(today.getDate() + (periodInDays === 7 ? 1 : 7)); // Ajuste para começar amanhã ou na próxima semana
             const analysisEndDate = new Date(analysisStartDate);
             analysisEndDate.setDate(analysisStartDate.getDate() + 6);
-            const startDateForAPI = analysisStartDate.toISOString().split('T')[0];
-            const endDateForAPI = analysisEndDate.toISOString().split('T')[0];
 
             try {
-                const { data, error: funcError } = await supabase.functions.invoke('agent-run-on-demand', { body: JSON.stringify({ cityId: city.id, startDate: startDateForAPI, endDate: endDateForAPI, userId: user.id }) });
+                // Chamamos a mesma função de backend, que agora é muito mais poderosa
+                const { data, error: funcError } = await supabase.functions.invoke('agent-run-on-demand', { 
+                    body: JSON.stringify({ 
+                        cityId: city.id, 
+                        startDate: analysisStartDate.toISOString().split('T')[0], 
+                        endDate: analysisEndDate.toISOString().split('T')[0], 
+                        userId: user.id 
+                    }) 
+                });
                 if (funcError) throw new Error(funcError.message);
                 if (data && data.error) throw new Error(data.error);
                 setAnalysis(data.structured_data);
@@ -62,45 +71,58 @@ export const StrategicDashboard = ({ city, periodInDays }: StrategicDashboardPro
 
     if (loading) { return <div className="text-center p-10"><Loader2 className="animate-spin text-blue-600 h-10 w-10 mx-auto" /><p className="mt-4 text-slate-600">Cruzando sinais de mercado para o período...</p></div>; }
     if (error) { return <div className="p-6 bg-red-50 text-red-700 rounded-lg flex items-center gap-2"><AlertTriangle />{error}</div>; }
-    if (!analysis) { return <div className="p-6 text-center"><p>Não foi possível obter a análise de mercado.</p></div> }
+    if (!analysis) { return <div className="p-6 text-center"><p>Não foi possível obter a análise de mercado para este período.</p></div> }
 
     const competitorChange = analysis.avg_competitor_realtime - analysis.avg_competitor_baseline;
     const competitorChangePercent = analysis.avg_competitor_baseline > 0 ? (competitorChange / analysis.avg_competitor_baseline) * 100 : 0;
-    const flightChange = analysis.avg_flight_realtime - analysis.avg_flight_baseline;
-    const flightChangePercent = analysis.avg_flight_baseline > 0 ? (flightChange / analysis.avg_flight_baseline) * 100 : 0;
-
+    
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                 <InfoCard 
                     icon={<Building2 className="text-blue-600"/>} 
-                    title="Concorrência" 
-                    value={analysis.avg_competitor_realtime > 0 ? `R$ ${analysis.avg_competitor_realtime.toFixed(2)}` : '--'} 
-                    change={competitorChangePercent !== 0 ? `${competitorChangePercent.toFixed(1)}% vs. semana passada` : 'Estável'} 
+                    title="Preço Médio (Concorrência)" 
+                    value={analysis.avg_competitor_realtime > 0 ? `R$ ${analysis.avg_competitor_realtime.toFixed(2)}` : 'N/D'} 
+                    change={competitorChangePercent !== 0 ? `${competitorChangePercent.toFixed(1)}% vs. base mensal` : 'Estável'} 
                     changeType={competitorChange > 0 ? 'increase' : (competitorChange < 0 ? 'decrease' : 'neutral')}
                 />
                 <InfoCard 
                     icon={<Plane className="text-blue-600"/>} 
-                    title="Voos" 
-                    value={analysis.avg_flight_realtime > 0 ? `R$ ${analysis.avg_flight_realtime.toFixed(2)}` : '--'} 
-                    change={flightChangePercent !== 0 ? `${flightChangePercent.toFixed(1)}% vs. semana passada` : 'Estável'}
-                    changeType={flightChange > 0 ? 'increase' : (flightChange < 0 ? 'decrease' : 'neutral')}
+                    title="Preço Médio (Voos SP)" 
+                    value={analysis.avg_flight_realtime > 0 ? `R$ ${analysis.avg_flight_realtime.toFixed(2)}` : 'N/D'} 
+                    change={null}
+                    changeType={'neutral'}
                 />
-                <div className="bg-white rounded-xl shadow-sm p-5 md:col-span-1 lg:col-span-2 transition-all hover:shadow-lg">
-                     <div className="flex items-center gap-3"><Ticket className="text-blue-600"/><h3 className="font-semibold text-slate-700">Principais Eventos no Radar</h3></div>
-                    <ul className="mt-3 space-y-2 text-sm">{(analysis.top_events && analysis.top_events.length > 0) ? analysis.top_events.map(event => (<li key={event.title} className="font-medium text-slate-600 truncate">{event.title}</li>)) : <li className="text-slate-500">Nenhum evento de alto impacto detetado.</li>}</ul>
+            </div>
+             <div className="bg-white rounded-xl shadow-sm p-6 transition-all hover:shadow-lg">
+                 <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2"><Flame className="text-orange-500" /> Sinais de Demanda e Buzz Social</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 className="font-medium text-slate-600 mb-2 flex items-center gap-1.5"><Ticket size={16}/>Eventos e Buzz</h4>
+                        <ul className="space-y-2 text-sm">
+                            {(analysis.social_buzz_signals && analysis.social_buzz_signals.length > 0) 
+                                ? analysis.social_buzz_signals.map((signal, i) => (<li key={i} className="flex items-start gap-2"><CheckCircle className="text-green-500 h-4 w-4 mt-0.5 shrink-0" /><span className="text-slate-700">{signal.content}</span></li>)) 
+                                : <li className="text-slate-500 italic">Nenhum sinal de alto impacto detectado.</li>
+                            }
+                        </ul>
+                    </div>
+                     <div>
+                        <h4 className="font-medium text-slate-600 mb-2 flex items-center gap-1.5"><Newspaper size={16}/>Notícias Relevantes</h4>
+                        <ul className="space-y-2 text-sm">
+                            {(analysis.top_news && analysis.top_news.length > 0) 
+                                ? analysis.top_news.map((news, i) => (<li key={i} className="flex items-start gap-2"><CheckCircle className="text-green-500 h-4 w-4 mt-0.5 shrink-0" /><span className="text-slate-700">{news.title}</span></li>)) 
+                                : <li className="text-slate-500 italic">Nenhuma notícia de impacto recente.</li>
+                            }
+                        </ul>
+                    </div>
                 </div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm p-5 transition-all hover:shadow-lg">
-                <h3 className="font-semibold text-slate-700 mb-3">Fontes Analisadas para esta Predição</h3>
-                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-green-700">
-                    <span className="flex items-center gap-1"><CheckCircle size={16}/> Preços da Concorrência</span>
-                    <span className="flex items-center gap-1"><CheckCircle size={16}/> Preços de Voos (Origem SP)</span>
-                    <span className="flex items-center gap-1"><CheckCircle size={16}/> Calendário de Eventos</span>
-                    <span className="flex items-center gap-1"><CheckCircle size={16}/> Notícias Locais de Turismo</span>
-                </div>
+            <div className="bg-white rounded-xl shadow-sm p-6 transition-all hover:shadow-lg">
+                <h3 className="font-semibold text-slate-800 mb-3">Análise e Recomendação da IA</h3>
+                <article className="prose prose-slate max-w-none prose-h3:font-semibold prose-h3:text-slate-800 prose-p:text-slate-700 prose-strong:text-slate-900">
+                    <ReactMarkdown>{analysis.report_markdown}</ReactMarkdown>
+                </article>
             </div>
-            <div className="prose prose-slate max-w-none"><ReactMarkdown>{analysis.report_markdown}</ReactMarkdown></div>
         </div>
     );
 };
