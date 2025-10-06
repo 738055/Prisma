@@ -1,6 +1,7 @@
+// src/pages/LoginPage.tsx
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogIn } from 'lucide-react';
+import PrismaLogo from '../components/PrismaLogo'; // <-- A nova logo animada
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,85 +12,29 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-
+    setError(''); setLoading(true);
     const { error } = await signIn(email, password);
-
-    if (error) {
-      setError('Email ou senha inválidos');
-    }
+    if (error) setError('Email ou senha inválidos');
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="flex items-center justify-center mb-8">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-3 rounded-xl">
-              <LogIn size={32} />
-            </div>
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-hidden">
+      <PrismaLogo />
+      <div className="w-full max-w-md z-10 animate-fade-in">
+        <div className="bg-slate-800/50 backdrop-blur-lg rounded-2xl shadow-2xl border border-slate-700 p-8">
+          <div className="text-center mb-8">
+            <svg className="w-16 h-16 mx-auto mb-4" viewBox="0 0 4491 4491" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="2245.27" cy="2245.72" r="2245.27" fill="#E1EEE6" fillOpacity="0.1"/><path d="M2056.36 3499.28L3651.6 2829.85L2056.36 1008.52M2056.36 3499.28L870.618 2829.85L2056.36 1008.52M2056.36 3499.28V1008.52" stroke="#E1EEE6" strokeWidth="199.831" strokeLinejoin="round"/></svg>
+            <h1 className="text-4xl font-bold text-white mb-2">Prisma</h1>
+            <p className="text-slate-400">Inteligência de mercado para o seu hotel.</p>
           </div>
-
-          <h1 className="text-3xl font-bold text-center text-slate-800 mb-2">
-            Bem-vindo ao Prisma
-          </h1>
-          <p className="text-center text-slate-600 mb-8">
-            Inteligência de mercado para seu hotel
-          </p>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-              {error}
-            </div>
-          )}
-
+          {error && <div className="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg mb-6">{error}</div>}
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="seu@email.com"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-                Senha
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
-            </button>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-slate-900/70 text-white px-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="seu@email.com"/>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full bg-slate-900/70 text-white px-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="••••••••"/>
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">{loading ? 'A entrar...' : 'Entrar'}</button>
           </form>
-
-          <div className="mt-6 text-center">
-            <a href="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
-              Ainda não tem conta? Cadastre-se
-            </a>
-          </div>
+          <div className="mt-6 text-center"><a href="/signup" className="text-blue-400 hover:text-blue-300 font-medium">Não tem conta? Crie uma agora</a></div>
         </div>
       </div>
     </div>
