@@ -1,10 +1,8 @@
-// frontend/src/pages/SignUpPage.tsx
+// src/pages/SignUpPage.tsx
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { UserPlus } from 'lucide-react';
+import PrismaLogo from '../components/PrismaLogo';
 
-// --- CORREÇÃO AQUI ---
-// Remova a palavra 'default' da linha abaixo
 export function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,125 +16,38 @@ export function SignUpPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-    
-    if (!accommodationType || !starRating) {
-      setError('Por favor, preencha todos os campos do perfil.');
-      return;
-    }
-
+    if (password.length < 6) { setError('A senha deve ter pelo menos 6 caracteres'); return; }
+    if (!accommodationType || !starRating) { setError('Por favor, preencha todos os campos do perfil.'); return; }
     setLoading(true);
-
-    const { error } = await signUp({
-      email,
-      password,
-      hotelName,
-      accommodationType,
-      starRating: Number(starRating),
-    });
-
+    const { error } = await signUp({ email, password, hotelName, accommodationType, starRating: Number(starRating) });
     if (error) {
-      if (error.message.includes('already registered')) {
-        setError('Este email já está cadastrado');
-      } else {
-        setError('Erro ao criar conta. Tente novamente.');
-      }
+      if (error.message.includes('already registered')) { setError('Este email já está registado'); } 
+      else { setError('Erro ao criar conta. Tente novamente.'); }
     }
-    // Se não houver erro, a lógica do AuthContext irá redirecionar o utilizador
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="flex items-center justify-center mb-8">
-            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-3 rounded-xl">
-              <UserPlus size={32} />
-            </div>
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-hidden relative">
+      <PrismaLogo />
+      <div className="w-full max-w-md z-10 animate-fade-in">
+        <div className="bg-slate-800/50 backdrop-blur-lg rounded-2xl shadow-2xl border border-slate-700 p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">Crie a sua Conta</h1>
+            <p className="text-slate-400">Comece a otimizar as suas tarifas hoje.</p>
           </div>
-
-          <h1 className="text-3xl font-bold text-center text-slate-800 mb-2">
-            Crie sua conta
-          </h1>
-          <p className="text-center text-slate-600 mb-8">
-            Comece a otimizar suas tarifas hoje
-          </p>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-              {error}
+          {error && <div className="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg mb-6 text-center">{error}</div>}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input id="hotelName" type="text" value={hotelName} onChange={(e) => setHotelName(e.target.value)} required className="w-full bg-slate-900/70 text-white px-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Nome do Hotel"/>
+            <div className="grid grid-cols-2 gap-4">
+              <select id="accommodationType" value={accommodationType} onChange={(e) => setAccommodationType(e.target.value)} required className="w-full bg-slate-900/70 text-white px-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500"><option value="" disabled>Tipo</option><option value="Hotel">Hotel</option><option value="Pousada">Pousada</option><option value="Resort">Resort</option></select>
+              <select id="starRating" value={starRating} onChange={(e) => setStarRating(Number(e.target.value))} required className="w-full bg-slate-900/70 text-white px-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500"><option value="" disabled>Estrelas</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="hotelName" className="block text-sm font-medium text-slate-700 mb-2">
-                Nome do Hotel
-              </label>
-              <input id="hotelName" type="text" value={hotelName} onChange={(e) => setHotelName(e.target.value)} required className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition" placeholder="Hotel Exemplo"/>
-            </div>
-
-            {/* --- NOVO CAMPO --- */}
-            <div>
-              <label htmlFor="accommodationType" className="block text-sm font-medium text-slate-700 mb-2">
-                Tipo de Acomodação
-              </label>
-              <select id="accommodationType" value={accommodationType} onChange={(e) => setAccommodationType(e.target.value)} required className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
-                <option value="" disabled>Selecione o tipo</option>
-                <option value="Hotel">Hotel</option>
-                <option value="Pousada">Pousada</option>
-                <option value="Resort">Resort</option>
-                <option value="Hostel">Hostel</option>
-                <option value="Apart-Hotel">Apart-Hotel</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </div>
-
-            {/* --- NOVO CAMPO --- */}
-            <div>
-              <label htmlFor="starRating" className="block text-sm font-medium text-slate-700 mb-2">
-                Classificação (Estrelas)
-              </label>
-              <select id="starRating" value={starRating} onChange={(e) => setStarRating(Number(e.target.value))} required className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
-                <option value="" disabled>Selecione a classificação</option>
-                <option value="1">1 Estrela</option>
-                <option value="2">2 Estrelas</option>
-                <option value="3">3 Estrelas</option>
-                <option value="4">4 Estrelas</option>
-                <option value="5">5 Estrelas</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                Email
-              </label>
-              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition" placeholder="seu@email.com"/>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-                Senha
-              </label>
-              <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition" placeholder="••••••••"/>
-              <p className="mt-1 text-xs text-slate-500">Mínimo de 6 caracteres</p>
-            </div>
-
-            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-3 rounded-lg hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Criando conta...' : 'Criar conta'}
-            </button>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-slate-900/70 text-white px-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="O seu melhor email"/>
+            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="w-full bg-slate-900/70 text-white px-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Senha (mín. 6 caracteres)"/>
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">{loading ? 'A criar conta...' : 'Criar Conta'}</button>
           </form>
-
-          <div className="mt-6 text-center">
-            <a href="/login" className="text-green-600 hover:text-green-700 font-medium">
-              Já tem uma conta? Entre
-            </a>
-          </div>
+          <div className="mt-6 text-center"><a href="/login" className="text-blue-400 hover:text-blue-300 font-medium">Já tem uma conta? Entre</a></div>
         </div>
       </div>
     </div>
