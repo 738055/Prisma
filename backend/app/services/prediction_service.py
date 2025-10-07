@@ -2,6 +2,7 @@ import openai
 from datetime import date, timedelta
 from ..supabase_client import supabase_client
 from ..settings import settings
+import time # <--- ESTA É A LINHA QUE FALTAVA
 
 openai.api_key = settings.OPENAI_API_KEY
 
@@ -13,13 +14,14 @@ def _parse_raw_data_into_factors(raw_snapshots: list) -> list:
     factors = []
     for snapshot in raw_snapshots:
         if snapshot['source_api'] == 'booking-com15' and snapshot['snapshot'].get('data'):
-            prices = [h['price'] for h in snapshot['snapshot']['data']['hotels']]
+            # A estrutura pode ser diferente, ajuste conforme a resposta real da API
+            prices = [h.get('price') for h in snapshot['snapshot']['data'].get('hotels', []) if h.get('price')]
             if prices:
                 avg_price = sum(prices) / len(prices)
                 factors.append(f"- Preço médio de hotéis (Booking.com): R$ {avg_price:.2f}")
         
         if snapshot['source_api'] == 'real-time-news' and snapshot['snapshot'].get('data'):
-            articles = [article['title'] for article in snapshot['snapshot']['data'][:3]]
+            articles = [article.get('title') for article in snapshot['snapshot'].get('data', [])[:3] if article.get('title')]
             if articles:
                 factors.append(f"- Principais notícias: {'; '.join(articles)}")
 
@@ -32,14 +34,12 @@ def run_prediction_for_date(city_id: str, target_date: str):
     """
     print(f"Iniciando predição para cidade {city_id} na data {target_date}")
     
-    # 1. Buscar todos os dados brutos relevantes para esta data
     response = supabase_client.from_('raw_data_snapshots').select('*').eq('city_id', city_id).eq('target_date', target_date).execute()
     
     if not response.data:
         print(f"Nenhum dado encontrado para {target_date}. A pular predição.")
         return
 
-    # 2. Processar dados brutos em fatores legíveis (simplificado)
     factors_list = _parse_raw_data_into_factors(response.data)
     
     if not factors_list:
@@ -48,7 +48,6 @@ def run_prediction_for_date(city_id: str, target_date: str):
 
     factors_text = "\n".join(factors_list)
 
-    # 3. Construir o prompt e chamar a OpenAI
     prompt = f"""
     Com base nos seguintes fatores de mercado para a data {target_date}, classifique o nível de demanda esperado.
 
@@ -83,16 +82,14 @@ def run_prediction_for_date(city_id: str, target_date: str):
         import json
         prediction_data = json.loads(result_json)
 
-        # 4. Salvar a predição na base de dados
         prediction_to_save = {
             "city_id": city_id,
             "prediction_date": target_date,
             "demand_level": prediction_data.get("demand_level"),
             "reasoning_summary": prediction_data.get("reasoning_summary"),
-            "confidence_score": 90 # Pode ser melhorado no futuro
+            "confidence_score": 90
         }
 
-        # Usando 'upsert' para criar ou atualizar a predição para o dia
         supabase_client.from_('demand_predictions').upsert(prediction_to_save, on_conflict='city_id, prediction_date').execute()
         print(f"Predição para {target_date} salva com sucesso: {prediction_data.get('demand_level')}")
 
@@ -108,7 +105,7 @@ def trigger_batch_predictions():
         
     today = date.today()
     for city in cities_res.data:
-        for i in range(90): # Para os próximos 90 dias
+        for i in range(90):
             target_date = today + timedelta(days=i)
             target_date_str = target_date.strftime("%Y-%m-%d")
             run_prediction_for_date(city['id'], target_date_str)
