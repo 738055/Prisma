@@ -1,6 +1,5 @@
 // src/components/StrategicDashboard.tsx
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Plane, Building2, Ticket, CheckCircle, Flame, Newspaper } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -8,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 interface City { id: string; name: string; }
 interface StrategicDashboardProps { city: City | null; periodInDays: number; }
 
-// Interface atualizada para receber a nova estrutura de dados
+// Interface atualizada para receber a nova estrutura de dados do backend Python
 interface StrategicAnalysis {
     report_markdown: string;
     avg_competitor_realtime: number;
@@ -20,8 +19,9 @@ interface StrategicAnalysis {
     top_news: { title: string; source: string }[];
 }
 
+// Componente de cartão para exibir KPIs
 function InfoCard({ icon, title, value, change, changeType }: { icon: React.ReactNode, title: string, value: string, change: string | null, changeType: 'increase' | 'decrease' | 'neutral' }) {
-    const changeColor = changeType === 'increase' ? 'text-red-500' : 'text-green-500';
+    const changeColor = changeType === 'increase' ? 'text-green-500' : 'text-red-500';
     const ChangeIcon = changeType === 'increase' ? TrendingUp : TrendingDown;
     return (
         <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col justify-between transition-all hover:shadow-lg hover:scale-105">
@@ -47,14 +47,13 @@ export const StrategicDashboard = ({ city, periodInDays }: StrategicDashboardPro
             
             const today = new Date();
             const analysisStartDate = new Date(today);
-            analysisStartDate.setDate(today.getDate() + (periodInDays === 7 ? 1 : 7)); // Ajuste para começar amanhã ou na próxima semana
+            // Ajusta a data de início para amanhã para previsões futuras
+            analysisStartDate.setDate(today.getDate() + 1); 
             const analysisEndDate = new Date(analysisStartDate);
-            analysisEndDate.setDate(analysisStartDate.getDate() + 6);
+            analysisEndDate.setDate(analysisStartDate.getDate() + (periodInDays - 1));
 
             try {
-                // --- ALTERAÇÃO CRUCIAL AQUI ---
-                // Trocamos supabase.functions.invoke por uma chamada fetch para a API Python.
-                // A URL http://localhost:8000 aponta para o servidor FastAPI que você irá rodar localmente.
+                // --- CHAMADA ATUALIZADA PARA A API PYTHON ---
                 const response = await fetch('http://localhost:8000/analyze', {
                     method: 'POST',
                     headers: {
@@ -75,8 +74,7 @@ export const StrategicDashboard = ({ city, periodInDays }: StrategicDashboardPro
 
                 const data = await response.json();
                 
-                // A estrutura da resposta da nossa API Python agora contém 'analysis' e 'structured_data'
-                // Nós queremos o 'structured_data' para os cartões e a 'analysis.report_markdown' para o texto.
+                // A estrutura da resposta da API Python contém 'analysis' e 'structured_data'
                 setAnalysis({
                     ...data.structured_data,
                     report_markdown: data.analysis.final_report
@@ -87,9 +85,9 @@ export const StrategicDashboard = ({ city, periodInDays }: StrategicDashboardPro
         runAnalysis();
     }, [city, periodInDays, user]);
 
-    if (loading) { return <div className="text-center p-10"><Loader2 className="animate-spin text-blue-600 h-10 w-10 mx-auto" /><p className="mt-4 text-slate-600">A contactar o motor de análise Python...</p></div>; }
-    if (error) { return <div className="p-6 bg-red-50 text-red-700 rounded-lg flex items-center gap-2"><AlertTriangle />{error}</div>; }
-    if (!analysis) { return <div className="p-6 text-center"><p>Não foi possível obter a análise de mercado para este período.</p></div> }
+    if (loading) { return <div className="text-center p-10 bg-white rounded-xl shadow-sm"><Loader2 className="animate-spin text-blue-600 h-10 w-10 mx-auto" /><p className="mt-4 text-slate-600">A contactar o motor de análise Python...</p></div>; }
+    if (error) { return <div className="p-6 bg-red-50 text-red-700 rounded-lg flex items-center gap-2 shadow-sm"><AlertTriangle />{error}</div>; }
+    if (!analysis) { return <div className="p-6 bg-white rounded-xl shadow-sm text-center"><p>Não foi possível obter a análise de mercado para este período.</p></div> }
 
     const competitorChange = analysis.avg_competitor_realtime - analysis.avg_competitor_baseline;
     const competitorChangePercent = analysis.avg_competitor_baseline > 0 ? (competitorChange / analysis.avg_competitor_baseline) * 100 : 0;

@@ -1,8 +1,9 @@
 import openai
 from ..supabase_client import supabase_client
 from ..settings import settings
-from .connectors import scrape_serpapi
+from . import connectors
 from ..models import StructuredData, Event, SocialBuzzSignal, NewsArticle, Period, AnalysisResponse, FinalReport
+from datetime import timedelta, date
 
 # Inicializa o cliente OpenAI
 openai.api_key = settings.OPENAI_API_KEY
@@ -10,7 +11,6 @@ openai.api_key = settings.OPENAI_API_KEY
 def calculate_average(items: list, key: str) -> float:
     if not items:
         return 0.0
-    # Garante que o valor seja numérico antes de somar
     valid_items = [float(str(item.get(key, '0')).replace(',', '.')) for item in items if item.get(key) is not None]
     if not valid_items:
         return 0.0
@@ -18,8 +18,8 @@ def calculate_average(items: list, key: str) -> float:
     return total / len(valid_items)
 
 def run_market_analysis(city_id: str, start_date: str, end_date: str, user_id: str) -> dict:
-    # 1. BUSCAR DADOS DO SUPABASE (CIDADE E LINHA DE BASE)
-    city_res = supabase_client.from_('cities').select('name, state').eq('id', city_id).single().execute()
+    # 1. BUSCAR DADOS DO SUPABASE (CIDADE)
+    city_res = supabase_client.from_('cities').select('name, state, booking_com_dest_id').eq('id', city_id).single().execute()
     if not city_res.data:
         raise ValueError("Cidade não encontrada.")
     city = city_res.data
@@ -27,17 +27,27 @@ def run_market_analysis(city_id: str, start_date: str, end_date: str, user_id: s
 
     print(f"[Análise de Mercado] Iniciando para {city_name} de {start_date} a {end_date}")
 
-    # 2. BUSCAR DADOS EM TEMPO REAL (SERPAPI E SUPABASE)
-    competitors_realtime_raw = scrape_serpapi({'engine': 'booking', 'ss': city_name, 'checkin_date': start_date, 'checkout_date': end_date})
-    flights_realtime_raw = scrape_serpapi({'engine': 'google_flights', 'departure_id': 'SAO', 'arrival_id': city_name, 'outbound_date': start_date})
-    news_realtime_raw = scrape_serpapi({'engine': 'google', 'tbm': 'nws', 'q': f"turismo {city['name']}"})
+    # 2. BUSCAR DADOS EM TEMPO REAL (USANDO OS CONECTORES)
+    start_date_obj = date.fromisoformat(start_date)
+    
+    competitors_realtime_raw = connectors.fetch_hotels_booking_com15({
+        'dest_id': city.get('booking_com_dest_id'), 
+        'checkin_date': start_date, 
+        'checkout_date': (start_date_obj + timedelta(days=1)).strftime("%Y-%m-%d")
+    })
+    flights_realtime_raw = connectors.fetch_flights_sky_scrapper({
+        'origin': 'GRU', 
+        'destination': city_name, 
+        'date': start_date
+    })
+    news_realtime_raw = connectors.fetch_real_time_news({'query': f"turismo {city['name']}"})
     
     social_buzz_res = supabase_client.from_('social_buzz_signals').select('content, impact_score, source').eq('city_id', city_id).gte('signal_date', start_date).lte('signal_date', end_date).execute()
     competitors_baseline_res = supabase_client.from_('competitor_data').select('price, source').eq('city_id', city_id).eq('target_date', start_date).eq('data_type', 'monthly_baseline').execute()
 
     # 3. PROCESSAR E ESTRUTURAR OS DADOS
-    competitors_realtime = [{'price': p.get('price'), 'source': 'Booking.com'} for p in competitors_realtime_raw.get('properties', []) if p.get('price')]
-    flights_realtime = [{'price': f.get('price'), 'source': 'Google Flights'} for f in (flights_realtime_raw.get('best_flights', []) or []) + (flights_realtime_raw.get('other_flights', []) or []) if f.get('price')]
+    competitors_realtime = [{'price': p.get('price'), 'source': 'Booking.com'} for p in competitors_realtime_raw.get('data', {}).get('hotels', []) if p.get('price')]
+    flights_realtime = [{'price': f.get('price'), 'source': 'Sky Scrapper'} for f in flights_realtime_raw.get('data', {}).get('flights', []) if f.get('price')]
 
     avg_competitor_realtime = calculate_average(competitors_realtime, 'price')
     avg_flight_realtime = calculate_average(flights_realtime, 'price')
@@ -52,7 +62,7 @@ def run_market_analysis(city_id: str, start_date: str, end_date: str, user_id: s
         avg_flight_baseline=0.0,
         top_events=[Event(title=s['content']) for s in social_buzz_res.data if s.get('source') == 'predicthq_event'],
         social_buzz_signals=[SocialBuzzSignal(**s) for s in social_buzz_res.data],
-        top_news=[NewsArticle(title=n.get('title', ''), source=n.get('source', '')) for n in news_realtime_raw.get('news_results', [])[:3]]
+        top_news=[NewsArticle(title=n.get('title', ''), source=n.get('source', '')) for n in news_realtime_raw.get('data', [])[:3]]
     )
 
     # 4. CONSTRUIR O PROMPT E CHAMAR A IA
@@ -60,12 +70,8 @@ def run_market_analysis(city_id: str, start_date: str, end_date: str, user_id: s
     **Dossiê de Inteligência de Mercado**
     - **Destino:** {city_name}
     - **Período de Análise:** {start_date} a {end_date}
-
-    **1. Análise de Preços (Sinais de Mercado):**
     - **Concorrência (Hotéis):** O preço médio hoje é **R$ {avg_competitor_realtime:.2f}**. A linha de base para este período, medida no início do mês, era de **R$ {avg_competitor_baseline:.2f}**.
     - **Demanda Aérea (Voos de SP):** O preço médio hoje é **R$ {avg_flight_realtime:.2f}**.
-
-    **2. Análise de Demanda (Sinais Latentes):**
     - **Eventos e Buzz Social Detectados:**
     {structured_data.social_buzz_signals or [{'content': 'Nenhum sinal de buzz social de alto impacto detectado.'}]}
     - **Principais Notícias de Turismo:**
@@ -99,7 +105,8 @@ def run_market_analysis(city_id: str, start_date: str, end_date: str, user_id: s
         'start_date': start_date,
         'end_date': end_date,
         'report_markdown': final_report_content,
-        'structured_data': structured_data.model_dump(mode='json')
+        # --- CORREÇÃO AQUI ---
+        'structured_data': structured_data.dict()
     }
     
     supabase_client.from_('market_analysis_reports').insert(report_to_save).execute()
@@ -110,4 +117,5 @@ def run_market_analysis(city_id: str, start_date: str, end_date: str, user_id: s
         structured_data=structured_data
     )
     
-    return response.model_dump(mode='json')
+    # --- CORREÇÃO AQUI ---
+    return response.dict()

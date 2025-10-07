@@ -3,28 +3,44 @@ from datetime import date, timedelta
 from ..supabase_client import supabase_client
 from ..settings import settings
 import time # <--- ESTA É A LINHA QUE FALTAVA
+import json
 
 openai.api_key = settings.OPENAI_API_KEY
 
 def _parse_raw_data_into_factors(raw_snapshots: list) -> list:
     """Transforma os JSONs brutos em uma lista de 'fatores de demanda' legíveis."""
-    # Esta função é um placeholder e precisa ser implementada com a lógica
-    # para extrair os dados relevantes de CADA resposta de API.
-    # Exemplo simples:
     factors = []
     for snapshot in raw_snapshots:
-        if snapshot['source_api'] == 'booking-com15' and snapshot['snapshot'].get('data'):
-            # A estrutura pode ser diferente, ajuste conforme a resposta real da API
-            prices = [h.get('price') for h in snapshot['snapshot']['data'].get('hotels', []) if h.get('price')]
+        api_source = snapshot.get('source_api')
+        snapshot_data = snapshot.get('snapshot', {})
+
+        # Fator: Preços de Hotéis (Booking.com)
+        if api_source == 'booking-com15' and snapshot_data.get('data'):
+            prices = [h.get('price') for h in snapshot_data['data'].get('hotels', []) if h.get('price')]
             if prices:
                 avg_price = sum(prices) / len(prices)
                 factors.append(f"- Preço médio de hotéis (Booking.com): R$ {avg_price:.2f}")
+
+        # Fator: Preços de Aluguer de Temporada (Airbnb)
+        elif api_source == 'airbnb19' and snapshot_data.get('data'):
+            prices = [p.get('price', {}).get('total') for p in snapshot_data['data'].get('properties', []) if p.get('price', {}).get('total')]
+            if prices:
+                avg_price = sum(prices) / len(prices)
+                factors.append(f"- Preço médio de alugueres de temporada (Airbnb): R$ {avg_price:.2f}")
         
-        if snapshot['source_api'] == 'real-time-news' and snapshot['snapshot'].get('data'):
-            articles = [article.get('title') for article in snapshot['snapshot'].get('data', [])[:3] if article.get('title')]
+        # Fator: Preços de Voos (Sky Scrapper)
+        elif api_source == 'sky-scrapper' and snapshot_data.get('data'):
+            prices = [f.get('price') for f in snapshot_data['data'].get('flights', []) if f.get('price')]
+            if prices:
+                avg_price = sum(prices) / len(prices)
+                factors.append(f"- Preço médio de voos (Sky Scrapper): R$ {avg_price:.2f}")
+
+        # Fator: Notícias (Real Time News)
+        elif api_source == 'real-time-news' and snapshot_data.get('data'):
+            articles = [article.get('title') for article in snapshot_data.get('data', [])[:3] if article.get('title')]
             if articles:
                 factors.append(f"- Principais notícias: {'; '.join(articles)}")
-
+    
     return factors
 
 
@@ -79,7 +95,6 @@ def run_prediction_for_date(city_id: str, target_date: str):
             temperature=0.2
         )
         result_json = chat_completion.choices[0].message.content
-        import json
         prediction_data = json.loads(result_json)
 
         prediction_to_save = {
@@ -87,7 +102,7 @@ def run_prediction_for_date(city_id: str, target_date: str):
             "prediction_date": target_date,
             "demand_level": prediction_data.get("demand_level"),
             "reasoning_summary": prediction_data.get("reasoning_summary"),
-            "confidence_score": 90
+            "confidence_score": 90 # Placeholder
         }
 
         supabase_client.from_('demand_predictions').upsert(prediction_to_save, on_conflict='city_id, prediction_date').execute()
@@ -101,6 +116,7 @@ def trigger_batch_predictions():
     print("====== INICIANDO CICLO DE GERAÇÃO DE PREDIÇÕES ======")
     cities_res = supabase_client.from_('cities').select('id').execute()
     if not cities_res.data:
+        print("Nenhuma cidade encontrada para iniciar a predição.")
         return
         
     today = date.today()
