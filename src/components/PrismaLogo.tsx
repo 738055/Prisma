@@ -1,84 +1,119 @@
-// src/components/PrismaLogo.tsx
+// src/components/PrismaLogo.tsx (VERSÃO ATUALIZADA)
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useRef, useMemo } from 'react';
 import * as THREE from 'three';
 
-// --- COMPONENTE DO PRISMA TRIANGULAR ---
-const Prism = () => {
+// --- COMPONENTE DO PRISMA DE CRISTAL ---
+const CrystalPrism = () => {
   const meshRef = useRef<THREE.Mesh>(null!);
-  
-  // A rotação agora é mais lenta e subtil, para um toque mais sofisticado
-  useFrame(() => {
+
+  // Animação de rotação mais suave e elegante
+  useFrame((state) => {
     if (meshRef.current) {
-        meshRef.current.rotation.x += 0.0005;
-        meshRef.current.rotation.y += 0.001;
+      const t = state.clock.getElapsedTime();
+      meshRef.current.rotation.y = t * 0.1;
+      meshRef.current.rotation.x = Math.sin(t * 0.5) * 0.1;
     }
   });
 
-  // Criamos a geometria do prisma triangular manualmente para ser exato.
+  // Geometria de um prisma triangular
   const geometry = useMemo(() => {
     const shape = new THREE.Shape();
-    const height = 2;
-    const radius = 1.2;
+    const radius = 1.0; // Raio do triângulo equilátero
     shape.moveTo(0, radius);
-    shape.lineTo(radius * Math.cos(Math.PI / 6), -radius * Math.sin(Math.PI / 6));
-    shape.lineTo(-radius * Math.cos(Math.PI / 6), -radius * Math.sin(Math.PI / 6));
+    shape.lineTo(radius * Math.sin((2 * Math.PI) / 3), radius * Math.cos((2 * Math.PI) / 3));
+    shape.lineTo(radius * Math.sin((4 * Math.PI) / 3), radius * Math.cos((4 * Math.PI) / 3));
     shape.closePath();
 
     const extrudeSettings = {
       steps: 1,
-      depth: height,
-      bevelEnabled: false,
+      depth: 1.5, // Altura do prisma
+      bevelEnabled: true,
+      bevelThickness: 0.05,
+      bevelSize: 0.05,
+      bevelSegments: 2,
     };
-
     return new THREE.ExtrudeGeometry(shape, extrudeSettings);
   }, []);
 
   return (
-    <mesh ref={meshRef} geometry={geometry} scale={[1.8, 1.8, 1.8]} rotation={[0.2, 0.5, 0]}>
-        {/* Usamos EdgesGeometry para renderizar apenas as arestas, como um wireframe */}
-        <edgesGeometry args={[geometry]} />
-        <lineBasicMaterial color="#E1EEE6" linewidth={2} />
+    <mesh ref={meshRef} geometry={geometry} scale={[1.5, 1.5, 1.5]} position={[0, 0, 0]}>
+        {/* Material físico que reage realisticamente à luz */}
+        <meshPhysicalMaterial
+            color="#ffffff"
+            transmission={1.0}
+            roughness={0.05}
+            metalness={0.0}
+            thickness={1.5}
+            ior={1.7} // Índice de refração (similar ao diamante)
+            envMapIntensity={0.5}
+        />
     </mesh>
   );
 };
 
-// --- COMPONENTE DOS FEIXES DE LUZ (INALTERADO) ---
-const LightBeams = () => {
-    const group = useRef<THREE.Group>(null!);
+// --- COMPONENTE DAS LUZES ORBITAIS COLORIDAS ---
+const OrbitingLights = () => {
+    const groupRef = useRef<THREE.Group>(null!);
+
+    // Luzes coloridas que se movem em órbitas
+    const lights = useMemo(() => [
+        { color: '#00aaff', intensity: 150, distance: 10, position: [5, 2, 0] },
+        { color: '#ff00aa', intensity: 150, distance: 10, position: [-5, -2, 0] },
+        { color: '#aaff00', intensity: 100, distance: 10, position: [0, 5, 0] },
+    ], []);
+
     useFrame(({ clock }) => {
-        if(group.current) {
-            group.current.rotation.y = clock.getElapsedTime() * 0.05;
-            group.current.rotation.x = Math.sin(clock.getElapsedTime() * 0.1) * 0.2;
+        if (groupRef.current) {
+            const t = clock.getElapsedTime() * 0.5;
+            groupRef.current.children.forEach((light, i) => {
+                const angle = t + (i * 2 * Math.PI) / lights.length;
+                light.position.x = 5 * Math.cos(angle);
+                light.position.z = 5 * Math.sin(angle);
+                light.position.y = 3 * Math.sin(angle * 2);
+            });
         }
     });
 
-    const colors = ['#00aaff', '#ffaa00', '#ff00aa', '#aaff00', '#00ffaa', '#aa00ff', '#ff4400'];
-    
     return (
-        <group ref={group}>
-            {colors.map((color, i) => (
-                <mesh key={i} rotation={[0, 0, (Math.PI * 2 * i) / colors.length]} position={[0,0,0]}>
-                    <planeGeometry args={[0.08, 30]} />
-                    <meshBasicMaterial 
-                        color={color} 
-                        transparent 
-                        opacity={0.3} 
-                        blending={THREE.AdditiveBlending}
-                        side={THREE.DoubleSide}
-                    />
-                </mesh>
+        <group ref={groupRef}>
+            {lights.map((light, i) => (
+                <pointLight
+                    key={i}
+                    color={light.color}
+                    intensity={light.intensity}
+                    distance={light.distance}
+                />
             ))}
         </group>
     );
+};
+
+// --- COMPONENTE DO FEIXE DE LUZ DE FUNDO ---
+const WhiteLightBeam = () => {
+    return (
+        <mesh position={[0, 0, -5]} rotation={[0, 0, 0]}>
+            <planeGeometry args={[15, 15]} />
+            <meshBasicMaterial transparent opacity={0.3}>
+                <gradientTexture
+                    stops={[0, 0.5, 1]}
+                    colors={['#ffffff', '#ffffff', 'transparent']}
+                    size={1024}
+                />
+            </meshBasicMaterial>
+        </mesh>
+    );
 }
 
+// --- COMPONENTE PRINCIPAL DO LOGO ---
 export default function PrismaLogo() {
   return (
-    <div className="absolute inset-0 z-0 opacity-25">
-      <Canvas camera={{ position: [0, 0, 10], fov: 75 }}>
-        <Prism />
-        <LightBeams />
+    <div className="absolute inset-0 z-0 opacity-40">
+      <Canvas camera={{ position: [0, 0, 8], fov: 50 }}>
+        <ambientLight intensity={0.2} />
+        <WhiteLightBeam />
+        <CrystalPrism />
+        <OrbitingLights />
       </Canvas>
     </div>
   );
