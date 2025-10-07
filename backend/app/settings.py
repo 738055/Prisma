@@ -1,6 +1,6 @@
 # A única mudança é de onde importamos o BaseSettings.
 # Em vez de 'from pydantic_settings...', agora é 'from pydantic...'
-from pydantic import BaseSettings, Field
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # A lógica interna para carregar do .env já existe no BaseSettings da Pydantic v1
