@@ -1,7 +1,8 @@
 fastapi
 uvicorn
-pydantic-settings
+gunicorn
 supabase
+pydantic
+python-dotenv
 openai
 requests
-python-dotenv

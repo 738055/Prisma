@@ -10,6 +10,8 @@ app = FastAPI(title="Prisma Intelligence Engine V2")
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://prismaht.netlify.app/login", # <-- Adicione a URL do seu frontend
+    "https://app.destino.co" # <-- Exemplo se você tiver um domínio personalizado
 ]
 
 app.add_middleware(
