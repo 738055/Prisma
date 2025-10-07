@@ -1,55 +1,76 @@
-// src/pages/LoginPage.tsx (VERSÃO ATUALIZADA)
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import PrismaLogo from '../components/PrismaLogo';
-import { Mail, Lock } from 'lucide-react';
+// src/components/PrismaLogo.tsx (CORRIGIDO)
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useRef, useMemo } from 'react';
+import * as THREE from 'three';
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+// --- COMPONENTE DO PRISMA WIREFRAME (BASEADO NO SVG) ---
+const WireframePrism = () => {
+  const geometry = useMemo(() => {
+    const shape = new THREE.Shape();
+    const radius = 2.0;
+    shape.moveTo(0, radius);
+    shape.lineTo(radius * Math.sin((2 * Math.PI) / 3), radius * Math.cos((2 * Math.PI) / 3));
+    shape.lineTo(radius * Math.sin((4 * Math.PI) / 3), radius * Math.cos((4 * Math.PI) / 3));
+    shape.closePath();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); setLoading(true);
-    const { error } = await signIn(email, password);
-    if (error) setError('Email ou senha inválidos');
-    setLoading(false);
-  };
+    const extrudeSettings = {
+      steps: 1,
+      depth: 3.0,
+      bevelEnabled: false,
+    };
+    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-hidden relative">
-      <PrismaLogo />
-      <div className="w-full max-w-md z-10 animate-fade-in">
-        <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700 p-8">
-          <div className="text-center mb-8">
-            <svg className="w-12 h-12 mx-auto mb-3 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21 7.5L12 2L3 7.5V16.5L12 22L21 16.5V7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M12 22V12" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M12 12L3 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M12 12L21 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M16.5 4.99999L7.5 9.49999" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-            </svg>
-            <h1 className="text-4xl font-bold text-white mb-2">Prisma</h1>
-            <p className="text-slate-400">Inteligência de mercado para o seu hotel.</p>
-          </div>
-          {error && <div className="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg mb-6 text-center text-sm">{error}</div>}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20}/>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-slate-900/70 text-white pl-12 pr-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="seu@email.com"/>
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20}/>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full bg-slate-900/70 text-white pl-12 pr-4 py-3 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="••••••••"/>
-            </div>
-            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">{loading ? 'A entrar...' : 'Entrar'}</button>
-          </form>
-          <div className="mt-6 text-center text-sm"><a href="/signup" className="text-blue-400 hover:text-blue-300 font-medium transition">Não tem conta? Crie uma agora</a></div>
-        </div>
-      </div>
+    <lineSegments>
+      <edgesGeometry args={[geometry]} />
+      <lineBasicMaterial color="#E1EEE6" linewidth={2} />
+    </lineSegments>
+  );
+};
+
+// --- NOVO COMPONENTE PARA CONTER A CENA E A ANIMAÇÃO ---
+// Toda a lógica 3D e o hook useFrame foram movidos para cá.
+const AnimatedScene = () => {
+  const groupRef = useRef<THREE.Group>(null!);
+
+  // O hook useFrame agora está DENTRO de um componente que é filho do Canvas.
+  useFrame((state) => {
+    if (groupRef.current) {
+      const t = state.clock.getElapsedTime();
+      groupRef.current.rotation.y = t * 0.1;
+      groupRef.current.rotation.x = Math.sin(t * 0.3) * 0.1;
+    }
+  });
+
+  return (
+    <>
+      {/* Luzes e objetos da cena */}
+      <pointLight color="#ffffff" intensity={5} distance={20} position={[0, 0, -10]} />
+      <ambientLight intensity={0.3} />
+      <pointLight color="#00aaff" intensity={15} distance={25} position={[-10, 5, 5]} />
+      <pointLight color="#ff00aa" intensity={15} distance={25} position={[10, -5, 5]} />
+
+      <group ref={groupRef} position={[0, 0, -1.5]}>
+        <mesh>
+          <circleGeometry args={[4, 64]} />
+          <meshStandardMaterial color="#E1EEE6" transparent opacity={0.1} side={THREE.DoubleSide} />
+        </mesh>
+        <WireframePrism />
+      </group>
+    </>
+  );
+}
+
+
+// --- COMPONENTE PRINCIPAL (AGORA MAIS LIMPO) ---
+export default function PrismaLogo() {
+  return (
+    <div className="absolute inset-0 z-0 opacity-25">
+      <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
+        {/* Renderiza o componente da cena que contém a lógica de animação */}
+        <AnimatedScene />
+      </Canvas>
     </div>
   );
 }
