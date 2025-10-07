@@ -8,14 +8,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // --- ALTERAÇÃO PARA DEPURAÇÃO LOCAL ---
-// A opção 'functionsUrl' força o cliente Supabase a chamar as tuas Edge Functions
-// que estão a rodar localmente, em vez das que estão na nuvem.
-// Isto permite-nos ver os logs e erros em tempo real no teu terminal.
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  functionsUrl: 'http://localhost:54321', 
-});
-
+// A opção 'functionsUrl' foi removida. O cliente agora usará o padrão da nuvem
+// para operações como autenticação, e a nossa API Python para a lógica de negócio.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // --- FIM DA ALTERAÇÃO ---
 
 

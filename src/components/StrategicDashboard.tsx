@@ -52,24 +52,42 @@ export const StrategicDashboard = ({ city, periodInDays }: StrategicDashboardPro
             analysisEndDate.setDate(analysisStartDate.getDate() + 6);
 
             try {
-                // Chamamos a mesma função de backend, que agora é muito mais poderosa
-                const { data, error: funcError } = await supabase.functions.invoke('agent-run-on-demand', { 
-                    body: JSON.stringify({ 
-                        cityId: city.id, 
-                        startDate: analysisStartDate.toISOString().split('T')[0], 
-                        endDate: analysisEndDate.toISOString().split('T')[0], 
-                        userId: user.id 
-                    }) 
+                // --- ALTERAÇÃO CRUCIAL AQUI ---
+                // Trocamos supabase.functions.invoke por uma chamada fetch para a API Python.
+                // A URL http://localhost:8000 aponta para o servidor FastAPI que você irá rodar localmente.
+                const response = await fetch('http://localhost:8000/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cityId: city.id,
+                        startDate: analysisStartDate.toISOString().split('T')[0],
+                        endDate: analysisEndDate.toISOString().split('T')[0],
+                        userId: user.id
+                    })
                 });
-                if (funcError) throw new Error(funcError.message);
-                if (data && data.error) throw new Error(data.error);
-                setAnalysis(data.structured_data);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Falha ao comunicar com o motor de análise.');
+                }
+
+                const data = await response.json();
+                
+                // A estrutura da resposta da nossa API Python agora contém 'analysis' e 'structured_data'
+                // Nós queremos o 'structured_data' para os cartões e a 'analysis.report_markdown' para o texto.
+                setAnalysis({
+                    ...data.structured_data,
+                    report_markdown: data.analysis.final_report
+                });
+
             } catch (e: any) { setError(e.message); } finally { setLoading(false); }
         };
         runAnalysis();
     }, [city, periodInDays, user]);
 
-    if (loading) { return <div className="text-center p-10"><Loader2 className="animate-spin text-blue-600 h-10 w-10 mx-auto" /><p className="mt-4 text-slate-600">Cruzando sinais de mercado para o período...</p></div>; }
+    if (loading) { return <div className="text-center p-10"><Loader2 className="animate-spin text-blue-600 h-10 w-10 mx-auto" /><p className="mt-4 text-slate-600">A contactar o motor de análise Python...</p></div>; }
     if (error) { return <div className="p-6 bg-red-50 text-red-700 rounded-lg flex items-center gap-2"><AlertTriangle />{error}</div>; }
     if (!analysis) { return <div className="p-6 text-center"><p>Não foi possível obter a análise de mercado para este período.</p></div> }
 
