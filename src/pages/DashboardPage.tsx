@@ -8,7 +8,7 @@ import CitySelector from '../components/CitySelector';
 import Calendar from '../components/Calendar';
 import DayDetailModal from '../components/DayDetailModal';
 import { StrategicDashboard } from '../components/StrategicDashboard';
-import PrismaChat from '../components/PrismaChat'; // Importando o PrismaChat
+import PrismaChat from '../components/PrismaChat';
 
 interface City { id: string; name: string; state: string; }
 
@@ -40,32 +40,31 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
         <Loader2 className="animate-spin text-blue-600 h-12 w-12" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 font-sans">
+    <div className="min-h-screen bg-slate-100 font-sans">
       <Header />
       <main className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-8">
         {cities.length > 0 && selectedCity ? (
           <>
             <CitySelector cities={cities} selectedCity={selectedCity} onCityChange={setSelectedCity} />
-
-            {/* --- PAINEL DE ANÁLISE ESTRATÉGICA --- */}
+            
             <div>
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="bg-white p-2 rounded-lg shadow-sm">
-                            <TrendingUp className="text-blue-600" size={24} />
+                        <div className="bg-white p-2 rounded-lg border border-slate-200">
+                           <TrendingUp className="text-blue-600" size={24} />
                         </div>
-                        <h2 className="text-xl font-bold text-gray-800">Dashboard Estratégico</h2>
+                        <h2 className="text-xl font-bold text-slate-800">Dashboard Estratégico</h2>
                     </div>
-                    <div className="flex items-center gap-2 p-1 bg-gray-200 rounded-lg self-start sm:self-center">
-                        <button onClick={() => setPeriodInDays(7)} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${periodInDays === 7 ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:bg-gray-300'}`}>Próximos 7 dias</button>
-                        <button onClick={() => setPeriodInDays(30)} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${periodInDays === 30 ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:bg-gray-300'}`}>Próximos 30 dias</button>
+                    <div className="flex items-center gap-2 p-1 bg-slate-200 rounded-lg self-start sm:self-center">
+                        <button onClick={() => setPeriodInDays(7)} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${periodInDays === 7 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:bg-slate-300'}`}>Próximos 7 dias</button>
+                        <button onClick={() => setPeriodInDays(30)} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${periodInDays === 30 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:bg-slate-300'}`}>Próximos 30 dias</button>
                     </div>
                 </div>
                 <StrategicDashboard city={selectedCity} periodInDays={periodInDays} />
@@ -76,14 +75,14 @@ export default function DashboardPage() {
                     <Calendar cityId={selectedCity.id} onDateClick={setSelectedDate} />
                 </div>
                 <div className="lg:col-span-1">
-                    <PrismaChat cityId={selectedCity.id} />
+                   <PrismaChat cityId={selectedCity.id} />
                 </div>
             </div>
           </>
         ) : (
              <div className="text-center py-20 bg-white border rounded-2xl shadow-sm">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Bem-vindo ao Destino.co!</h2>
-                <p className="text-gray-600 mb-6 max-w-md mx-auto">Para começar, configure a sua cidade principal no perfil e receba sua primeira análise de mercado.</p>
+                <h2 className="text-2xl font-bold text-slate-800 mb-4">Bem-vindo ao Prisma!</h2>
+                <p className="text-slate-600 mb-6 max-w-md mx-auto">Comece por configurar a sua cidade no perfil para obter a sua primeira análise.</p>
                 <a href="/profile" className="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition">
                   Configurar Meu Perfil
                 </a>
@@ -92,10 +91,10 @@ export default function DashboardPage() {
       </main>
 
       {selectedDate && selectedCity && (
-        <DayDetailModal
-            date={selectedDate}
-            cityId={selectedCity.id}
-            onClose={() => setSelectedDate(null)}
+        <DayDetailModal 
+            date={selectedDate} 
+            cityId={selectedCity.id} 
+            onClose={() => setSelectedDate(null)} 
         />
       )}
     </div>
