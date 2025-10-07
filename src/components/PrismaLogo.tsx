@@ -1,14 +1,13 @@
-// src/components/PrismaLogo.tsx (Fiel ao Logo SVG)
+// src/components/PrismaLogo.tsx (OPACIDADE AJUSTADA)
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useRef, useMemo } from 'react';
 import * as THREE from 'three';
 
 // --- COMPONENTE DO PRISMA WIREFRAME (BASEADO NO SVG) ---
 const WireframePrism = () => {
-  // Geometria de um prisma triangular, como no logo
   const geometry = useMemo(() => {
     const shape = new THREE.Shape();
-    const radius = 2.0; // Ajustado para a proporção do logo
+    const radius = 2.0;
     shape.moveTo(0, radius);
     shape.lineTo(radius * Math.sin((2 * Math.PI) / 3), radius * Math.cos((2 * Math.PI) / 3));
     shape.lineTo(radius * Math.sin((4 * Math.PI) / 3), radius * Math.cos((4 * Math.PI) / 3));
@@ -16,7 +15,7 @@ const WireframePrism = () => {
 
     const extrudeSettings = {
       steps: 1,
-      depth: 3.0, // Profundidade do prisma
+      depth: 3.0,
       bevelEnabled: false,
     };
     return new THREE.ExtrudeGeometry(shape, extrudeSettings);
@@ -25,17 +24,15 @@ const WireframePrism = () => {
   return (
     <lineSegments>
       <edgesGeometry args={[geometry]} />
-      {/* Cor das linhas do prisma, similar ao SVG */}
       <lineBasicMaterial color="#E1EEE6" linewidth={2} />
     </lineSegments>
   );
 };
 
-// --- COMPONENTE PRINCIPAL DO LOGO ANIMADO ---
-export default function PrismaLogo() {
+// --- COMPONENTE PARA CONTER A CENA E A ANIMAÇÃO ---
+const AnimatedScene = () => {
   const groupRef = useRef<THREE.Group>(null!);
 
-  // Animação de rotação de todo o conjunto
   useFrame((state) => {
     if (groupRef.current) {
       const t = state.clock.getElapsedTime();
@@ -45,26 +42,30 @@ export default function PrismaLogo() {
   });
 
   return (
-    <div className="absolute inset-0 z-0 opacity-25">
-      <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
-        {/* Luz branca suave ao fundo para criar um "feixe" ou aura */}
-        <pointLight color="#ffffff" intensity={5} distance={20} position={[0, 0, -10]} />
-        <ambientLight intensity={0.3} />
-        
-        {/* Luzes coloridas vivas que orbitam o logo */}
-        <pointLight color="#00aaff" intensity={15} distance={25} position={[-10, 5, 5]} />
-        <pointLight color="#ff00aa" intensity={15} distance={25} position={[10, -5, 5]} />
+    <>
+      <pointLight color="#ffffff" intensity={5} distance={20} position={[0, 0, -10]} />
+      <ambientLight intensity={0.3} />
+      <pointLight color="#00aaff" intensity={15} distance={25} position={[-10, 5, 5]} />
+      <pointLight color="#ff00aa" intensity={15} distance={25} position={[10, -5, 5]} />
 
-        <group ref={groupRef} position={[0,0,-1.5]}>
-          {/* O círculo de fundo do logo */}
-          <mesh>
-            <circleGeometry args={[4, 64]} />
-            <meshStandardMaterial color="#E1EEE6" transparent opacity={0.1} side={THREE.DoubleSide} />
-          </mesh>
-          
-          {/* O prisma wireframe no centro */}
-          <WireframePrism />
-        </group>
+      <group ref={groupRef} position={[0, 0, -1.5]}>
+        <mesh>
+          <circleGeometry args={[4, 64]} />
+          <meshStandardMaterial color="#E1EEE6" transparent opacity={0.1} side={THREE.DoubleSide} />
+        </mesh>
+        <WireframePrism />
+      </group>
+    </>
+  );
+}
+
+// --- COMPONENTE PRINCIPAL ---
+export default function PrismaLogo() {
+  return (
+    // A OPACIDADE FOI AJUSTADA AQUI PARA DEIXAR O LOGO MAIS SUTIL
+    <div className="absolute inset-0 z-0 opacity-20">
+      <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
+        <AnimatedScene />
       </Canvas>
     </div>
   );
