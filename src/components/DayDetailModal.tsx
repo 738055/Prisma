@@ -1,63 +1,44 @@
-// src/components/DayDetailModal.tsx (VERSÃO CORRIGIDA)
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { X, Calendar, Lightbulb, BedDouble, AlertCircle, TrendingUp, Search } from 'lucide-react';
+import { X, Calendar, Lightbulb, TrendingUp, Newspaper, AlertCircle } from 'lucide-react';
 
-interface PriceRecommendation {
-  recommended_price: number;
-  reasoning: string;
-  room_types: { name: string } | null;
+interface DayDetail {
+  prediction_date: string;
+  demand_level: string;
+  reasoning_summary?: string;
+  factors: {
+    factor_type: string;
+    description: string;
+    impact_score?: number;
+  }[];
 }
-interface MarketSnapshotDay {
-  date: string;
-  hotel_competitors: { avg_price: number | null; competitors_found: number };
-  local_events: any[];
-  flight_demand: { avg_price_sao_paulo_origin: number | null };
+
+interface DayDetailModalProps {
+  date: Date;
+  cityId: string;
+  onClose: () => void;
 }
-interface DayDetailModalProps { date: Date; cityId: string; onClose: () => void; }
 
 export default function DayDetailModal({ date, cityId, onClose }: DayDetailModalProps) {
-  const [recommendations, setRecommendations] = useState<PriceRecommendation[]>([]);
-  const [marketSnapshot, setMarketSnapshot] = useState<MarketSnapshotDay | null>(null);
+  const [details, setDetails] = useState<DayDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const getWeekStartDate = (d: Date) => {
-    const dateCopy = new Date(d);
-    const day = dateCopy.getDay();
-    const diff = dateCopy.getDate() - day;
-    return new Date(dateCopy.setDate(diff));
-  };
 
   useEffect(() => {
     const loadDetails = async () => {
       setLoading(true);
       setError(null);
       const dateString = date.toISOString().split('T')[0];
-      const weekStartDate = getWeekStartDate(date).toISOString().split('T')[0];
-
       try {
-        const [recsRes, marketRes] = await Promise.all([
-          supabase.from('price_recommendations').select(`*, room_types ( name )`).eq('city_id', cityId).eq('recommendation_date', dateString),
-          supabase.from('market_data').select('market_snapshot').eq('city_id', cityId).eq('week_start_date', weekStartDate).single()
-        ]);
-
-        if (recsRes.error) throw recsRes.error;
-        setRecommendations(recsRes.data || []);
-        
-        // --- LÓGICA CORRIGIDA ---
-        // Se marketRes.data for nulo ou tiver erro, não lançamos mais um erro fatal.
-        // Apenas definimos o snapshot como nulo.
-        if (marketRes.data?.market_snapshot) {
-          const daySnapshot = marketRes.data.market_snapshot.find((d: any) => d.date === dateString);
-          setMarketSnapshot(daySnapshot || null);
-        } else {
-          setMarketSnapshot(null);
+        // --- CHAMADA À NOVA API PYTHON ---
+        const response = await fetch(`http://localhost:8000/day_details/${cityId}/${dateString}`);
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || "Não foi possível obter os detalhes para esta data.");
         }
-
+        const data: DayDetail = await response.json();
+        setDetails(data);
       } catch (e: any) {
-        setError("Não foi possível obter os detalhes para esta data.");
-        console.error(e);
+        setError(e.message);
       } finally {
         setLoading(false);
       }
@@ -65,47 +46,56 @@ export default function DayDetailModal({ date, cityId, onClose }: DayDetailModal
     loadDetails();
   }, [date, cityId]);
 
-  const formatDate = (d: Date) => d.toLocaleString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const getDemandInfo = (level?: string) => {
+    switch (level) {
+      case 'low': return { label: 'Baixa Demanda', color: 'bg-green-500' };
+      case 'moderate': return { label: 'Demanda Moderada', color: 'bg-yellow-500' };
+      case 'high': return { label: 'Alta Demanda', color: 'bg-orange-500' };
+      case 'peak': return { label: 'Pico de Demanda', color: 'bg-red-500' };
+      default: return { label: 'Indefinido', color: 'bg-slate-500' };
+    }
+  };
+
+  const demandInfo = getDemandInfo(details?.demand_level);
+  const formatDate = (d: Date) => d.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 animate-fade-in">
-        <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-slate-200 p-6 flex justify-between items-center z-10">
-                <h2 className="text-2xl font-bold text-slate-800 capitalize"><Calendar className="inline-block mr-2" />{formatDate(date)}</h2>
-                <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full"><X size={24} /></button>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-50 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 bg-slate-50/80 backdrop-blur-sm p-6 flex justify-between items-center border-b">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 capitalize">{formatDate(date)}</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <div className={`w-3 h-3 rounded-full ${demandInfo.color}`}></div>
+              <span className="font-semibold text-slate-700">{demandInfo.label}</span>
             </div>
-            {loading ? ( <div className="p-12 text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div></div> ) 
-            : error ? ( <div className="p-12 text-center"><AlertCircle className="text-red-500 mx-auto mb-4" size={48} /><h3 className="text-lg font-semibold">Ocorreu um Erro</h3><p className="text-slate-600">{error}</p></div> ) 
-            : (
-            <div className="p-6 space-y-8">
-                {recommendations.length > 0 ? recommendations.map((rec, index) => (
-                <div key={index} className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-                    <div className="flex items-center gap-3 mb-4"><BedDouble className="text-blue-600" size={24} /><h3 className="text-xl font-semibold text-slate-800">{rec.room_types?.name}</h3></div>
-                    <div className="text-4xl font-bold text-blue-600 mb-4">R$ {Number(rec.recommended_price).toFixed(2)}</div>
-                    <div className="bg-white/80 rounded-lg p-4"><div className="flex items-start gap-3"><Lightbulb size={18} className="text-blue-600 mt-0.5" /><p className="text-sm text-slate-700 font-medium">{rec.reasoning}</p></div></div>
-                </div>
-                )) : <p className="text-center text-slate-600">Nenhuma recomendação de preço gerada para esta data.</p>}
-
-                {/* --- LÓGICA DE EXIBIÇÃO APRIMORADA --- */}
-                {marketSnapshot ? (
-                    <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={20} /> "Fotografia" do Mercado</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <p><strong>Preço Médio Concorrência:</strong> {marketSnapshot.hotel_competitors.avg_price ? `R$ ${marketSnapshot.hotel_competitors.avg_price.toFixed(2)}` : 'N/A'}</p>
-                            <p><strong>Preço Médio Voos (Origem SP):</strong> {marketSnapshot.flight_demand.avg_price_sao_paulo_origin ? `R$ ${marketSnapshot.flight_demand.avg_price_sao_paulo_origin.toFixed(2)}` : 'N/A'}</p>
-                            <p className="col-span-2"><strong>Eventos:</strong> {marketSnapshot.local_events.length > 0 ? marketSnapshot.local_events.map(e => e.title).join(', ') : 'Nenhum evento de impacto encontrado'}</p>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="text-center p-6 bg-slate-50 rounded-lg">
-                        <Search size={32} className="text-slate-400 mx-auto mb-3" />
-                        <h3 className="font-semibold text-slate-700">Análise de Mercado Não Disponível</h3>
-                        <p className="text-sm text-slate-500">O dossiê para esta semana ainda não foi processado.</p>
-                    </div>
-                )}
-            </div>
-            )}
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X size={24} /></button>
         </div>
+        
+        {loading ? ( <div className="p-12 text-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div></div> ) 
+        : error ? ( <div className="p-12 text-center text-red-700"><AlertCircle className="mx-auto mb-3" size={40} /><h3 className="font-semibold">Erro ao Carregar</h3><p className="text-sm">{error}</p></div> ) 
+        : details && (
+          <div className="p-6 space-y-6">
+            <div className="bg-white rounded-xl p-5 border">
+              <div className="flex items-start gap-3"><Lightbulb size={20} className="text-blue-600 mt-0.5" /><p className="text-slate-700"><strong className="text-slate-900">Resumo da IA:</strong> {details.reasoning_summary || "Análise em processamento."}</p></div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-800 mb-3">Fatores de Demanda Identificados</h3>
+              <div className="space-y-3">
+                {details.factors.length > 0 ? details.factors.map((factor, i) => (
+                  <div key={i} className="bg-white p-4 rounded-lg border flex items-start gap-3">
+                    {factor.factor_type === 'hotel_price' && <TrendingUp className="text-orange-500 mt-1" />}
+                    {factor.factor_type === 'news' && <Newspaper className="text-sky-500 mt-1" />}
+                    {factor.factor_type === 'event' && <Calendar className="text-purple-500 mt-1" />}
+                    <p className="text-sm text-slate-600 flex-1">{factor.description}</p>
+                  </div>
+                )) : <p className="text-sm text-slate-500 text-center py-4">Nenhum fator específico encontrado para esta data.</p>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
