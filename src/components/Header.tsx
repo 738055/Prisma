@@ -1,4 +1,4 @@
-// src/components/Header.tsx (VERSÃO ATUALIZADA)
+// src/components/Header.tsx (VERSÃO CORRIGIDA)
 import { useAuth } from '../contexts/AuthContext';
 import { User, LogOut, DollarSign, LayoutDashboard } from 'lucide-react';
 import { useState } from 'react';
@@ -12,11 +12,10 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <a href="/dashboard" className="flex items-center gap-2.5">
-             <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21 7.5L12 2L3 7.5V16.5L12 22L21 16.5V7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M12 22V12" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M12 12L3 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M12 12L21 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+            {/* --- LOGO SVG OFICIAL INSERIDO AQUI --- */}
+            <svg className="w-8 h-8" viewBox="0 0 4491 4491" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="2245.27" cy="2245.72" r="2245.27" fill="#E1EEE6" fillOpacity="0.1"/>
+                <path d="M2056.36 3499.28L3651.6 2829.85L2056.36 1008.52M2056.36 3499.28L870.618 2829.85L2056.36 1008.52M2056.36 3499.28V1008.52" stroke="#E1EEE6" strokeWidth="199.831" strokeLinejoin="round"/>
             </svg>
             <span className="text-xl font-bold text-white">Prisma</span>
           </a>

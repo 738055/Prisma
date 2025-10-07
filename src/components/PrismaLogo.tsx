@@ -1,154 +1,70 @@
-// src/components/PrismaLogo.tsx (VERSÃO FINAL E DINÂMICA)
+// src/components/PrismaLogo.tsx (Fiel ao Logo SVG)
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useRef, useMemo } from 'react';
 import * as THREE from 'three';
 
-// --- PARTÍCULAS DE LUZ COLORIDAS EM MOVIMENTO ---
-const LightParticles = () => {
-  const meshRef = useRef<THREE.Points>(null!);
-
-  const count = 200;
-  const particles = useMemo(() => {
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const velocities = new Float32Array(count * 3);
-    const palette = [new THREE.Color('#00aaff'), new THREE.Color('#ff00aa'), new THREE.Color('#aaff00'), new THREE.Color('#ffaa00')];
-
-    for (let i = 0; i < count; i++) {
-      // Posição inicial à esquerda
-      positions[i * 3] = -10 - Math.random() * 5;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 3;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 3;
-
-      // Velocidade para a direita
-      velocities[i * 3] = 2 + Math.random() * 2; // Velocidade em X
-      velocities[i * 3 + 1] = 0;
-      velocities[i * 3 + 2] = 0;
-
-      const color = palette[Math.floor(Math.random() * palette.length)];
-      colors[i * 3] = color.r;
-      colors[i * 3 + 1] = color.g;
-      colors[i * 3 + 2] = color.b;
-    }
-    return { positions, colors, velocities };
-  }, []);
-
-  useFrame((state, delta) => {
-    if (meshRef.current) {
-      const positions = meshRef.current.geometry.attributes.position.array as Float32Array;
-      for (let i = 0; i < count; i++) {
-        positions[i * 3] += particles.velocities[i * 3] * delta;
-
-        // Se a partícula passar do prisma, reseta sua posição
-        if (positions[i * 3] > 0) {
-          positions[i * 3] = -10 - Math.random() * 5;
-          positions[i * 3 + 1] = (Math.random() - 0.5) * 3;
-        }
-      }
-      meshRef.current.geometry.attributes.position.needsUpdate = true;
-    }
-  });
-
-  return (
-    <points ref={meshRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={particles.positions} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={count} array={particles.colors} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.05} vertexColors blending={THREE.AdditiveBlending} transparent />
-    </points>
-  );
-};
-
-// --- PRISMA CENTRAL GIRATÓRIO ---
-const RotatingPrism = () => {
-  const meshRef = useRef<THREE.Mesh>(null!);
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      const t = state.clock.getElapsedTime();
-      meshRef.current.rotation.y = t * 0.4;
-      meshRef.current.rotation.x = Math.sin(t * 0.7) * 0.2;
-    }
-  });
-  
+// --- COMPONENTE DO PRISMA WIREFRAME (BASEADO NO SVG) ---
+const WireframePrism = () => {
+  // Geometria de um prisma triangular, como no logo
   const geometry = useMemo(() => {
     const shape = new THREE.Shape();
-    const radius = 1.0;
+    const radius = 2.0; // Ajustado para a proporção do logo
     shape.moveTo(0, radius);
     shape.lineTo(radius * Math.sin((2 * Math.PI) / 3), radius * Math.cos((2 * Math.PI) / 3));
     shape.lineTo(radius * Math.sin((4 * Math.PI) / 3), radius * Math.cos((4 * Math.PI) / 3));
     shape.closePath();
-    const extrudeSettings = { depth: 1.5, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 2 };
+
+    const extrudeSettings = {
+      steps: 1,
+      depth: 3.0, // Profundidade do prisma
+      bevelEnabled: false,
+    };
     return new THREE.ExtrudeGeometry(shape, extrudeSettings);
   }, []);
 
   return (
-    <mesh ref={meshRef} position={[0, 0, 0]} scale={[1.6, 1.6, 1.6]}>
-      <primitive object={geometry} />
-      <meshPhysicalMaterial
-        color="#ffffff"
-        transmission={1.0}
-        roughness={0.0}
-        thickness={2.0}
-        ior={1.7}
-      />
-    </mesh>
+    <lineSegments>
+      <edgesGeometry args={[geometry]} />
+      {/* Cor das linhas do prisma, similar ao SVG */}
+      <lineBasicMaterial color="#E1EEE6" linewidth={2} />
+    </lineSegments>
   );
 };
 
-// --- FEIXE DE LUZ BRANCO EM MOVIMENTO ---
-const WhiteBeam = () => {
-    const materialRef = useRef<THREE.ShaderMaterial>(null!);
-
-    useFrame((state) => {
-        if(materialRef.current) {
-            materialRef.current.uniforms.time.value = state.clock.getElapsedTime();
-        }
-    });
-
-    const shader = {
-        uniforms: { time: { value: 0 } },
-        vertexShader: `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform float time;
-            varying vec2 vUv;
-            void main() {
-                float intensity = smoothstep(0.0, 0.8, vUv.x);
-                float wave = 0.5 + 0.5 * sin(vUv.x * 20.0 - time * 2.0);
-                float opacity = intensity * wave;
-                gl_FragColor = vec4(1.0, 1.0, 1.0, opacity);
-            }
-        `
-    }
-
-    return (
-        <mesh position={[6, 0, 0]} rotation={[0,0,0]}>
-            <planeGeometry args={[10, 1.5]} />
-            <shaderMaterial
-                ref={materialRef}
-                args={[shader]}
-                transparent
-                blending={THREE.AdditiveBlending}
-            />
-        </mesh>
-    );
-}
-
+// --- COMPONENTE PRINCIPAL DO LOGO ANIMADO ---
 export default function PrismaLogo() {
+  const groupRef = useRef<THREE.Group>(null!);
+
+  // Animação de rotação de todo o conjunto
+  useFrame((state) => {
+    if (groupRef.current) {
+      const t = state.clock.getElapsedTime();
+      groupRef.current.rotation.y = t * 0.1;
+      groupRef.current.rotation.x = Math.sin(t * 0.3) * 0.1;
+    }
+  });
+
   return (
-    <div className="absolute inset-0 z-0 opacity-50">
+    <div className="absolute inset-0 z-0 opacity-25">
       <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
-        <ambientLight intensity={0.2} />
-        <LightParticles />
-        <RotatingPrism />
-        <WhiteBeam />
+        {/* Luz branca suave ao fundo para criar um "feixe" ou aura */}
+        <pointLight color="#ffffff" intensity={5} distance={20} position={[0, 0, -10]} />
+        <ambientLight intensity={0.3} />
+        
+        {/* Luzes coloridas vivas que orbitam o logo */}
+        <pointLight color="#00aaff" intensity={15} distance={25} position={[-10, 5, 5]} />
+        <pointLight color="#ff00aa" intensity={15} distance={25} position={[10, -5, 5]} />
+
+        <group ref={groupRef} position={[0,0,-1.5]}>
+          {/* O círculo de fundo do logo */}
+          <mesh>
+            <circleGeometry args={[4, 64]} />
+            <meshStandardMaterial color="#E1EEE6" transparent opacity={0.1} side={THREE.DoubleSide} />
+          </mesh>
+          
+          {/* O prisma wireframe no centro */}
+          <WireframePrism />
+        </group>
       </Canvas>
     </div>
   );
