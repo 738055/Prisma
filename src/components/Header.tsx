@@ -16,7 +16,7 @@ export default function Header() {
                 {/* O path agora usa a cor do texto atual para se adaptar ao tema */}
                 <path d="M2056.36 3499.28L3651.6 2829.85L2056.36 1008.52M2056.36 3499.28L870.618 2829.85L2056.36 1008.52M2056.36 3499.28V1008.52" stroke="currentColor" strokeWidth="199.831" strokeLinejoin="round"/>
             </svg>
-            <span className="text-xl font-bold text-slate-800 dark:text-white">Destino.co</span>
+            <span className="text-xl font-bold text-slate-800 dark:text-white">Prisma</span>
           </a>
           <div className="flex items-center gap-2">
             <ThemeSwitcher /> {/* <-- Botão adicionado aqui */}
