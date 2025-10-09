@@ -1,20 +1,10 @@
 from pydantic import BaseModel
-from typing import List, Optional, Any
+from typing import List, Optional
 
-# Esquema para os dados de uma cidade retornados pela API
-class City(BaseModel):
-    id: str
-    name: str
-    state: str
-    booking_com_dest_id: Optional[str] = None
-    tripadvisor_location_id: Optional[str] = None
-
-# Esquema para as predições de demanda que alimentam o calendário
 class DemandPrediction(BaseModel):
     prediction_date: str
-    demand_level: str # low, moderate, high, peak
+    demand_level: str
 
-# Esquema para os fatores de demanda (os "porquês")
 class DemandFactor(BaseModel):
     factor_date: str
     source_api: str
@@ -23,10 +13,43 @@ class DemandFactor(BaseModel):
     value: Optional[float] = None
     impact_score: Optional[int] = None
 
-# Esquema para a resposta completa do detalhe do dia
 class DayDetail(BaseModel):
     prediction_date: str
     demand_level: str
     reasoning_summary: Optional[str] = None
     confidence_score: Optional[float] = None
     factors: List[DemandFactor]
+
+class Period(BaseModel):
+    start: str
+    end: str
+
+class Event(BaseModel):
+    title: str
+
+class SocialBuzzSignal(BaseModel):
+    content: str
+    impact_score: Optional[float] = None
+    source: str
+
+class NewsArticle(BaseModel):
+    title: str
+    source: str
+
+class StructuredData(BaseModel):
+    city: str
+    period: Period
+    avg_competitor_realtime: float
+    avg_competitor_baseline: float
+    avg_flight_realtime: float
+    avg_flight_baseline: float
+    top_events: List[Event]
+    social_buzz_signals: List[SocialBuzzSignal]
+    top_news: List[NewsArticle]
+
+class FinalReport(BaseModel):
+    final_report: str
+
+class AnalysisResponse(BaseModel):
+    analysis: FinalReport
+    structured_data: StructuredData

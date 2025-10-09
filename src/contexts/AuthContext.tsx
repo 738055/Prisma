@@ -1,9 +1,7 @@
-// frontend/src/contexts/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-// Nova interface para os dados de signUp para incluir os novos campos
 interface SignUpData {
   email: string;
   password: string;
@@ -32,45 +30,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Função signUp atualizada para receber um objeto com todos os dados
   const signUp = async ({ email, password, hotelName, accommodationType, starRating }: SignUpData) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
-    // Se o utilizador foi criado com sucesso, insere o perfil completo
+    // O gatilho no Supabase irá criar o perfil. Aqui, apenas atualizamos com os dados adicionais.
     if (!error && data.user) {
       const { error: profileError } = await supabase
         .from('user_profiles')
-        .insert({
-          id: data.user.id,
+        .update({
           hotel_name: hotelName,
-          accommodation_type: accommodationType, // Novo campo
-          star_rating: starRating,             // Novo campo
-        });
+          accommodation_type: accommodationType,
+          star_rating: starRating,
+        })
+        .eq('id', data.user.id);
 
       if (profileError) {
-        // Se houver um erro no perfil, retorna-o para ser tratado na UI
+        console.error("Erro ao atualizar o perfil:", profileError);
         return { error: profileError as any };
       }
     }
-
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 

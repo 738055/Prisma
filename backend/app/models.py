@@ -1,15 +1,11 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-# --- Modelos para o Corpo do Pedido (Request Body) ---
-
 class AnalysisRequestBody(BaseModel):
     cityId: str
     startDate: str
     endDate: str
     userId: str
-
-# --- Modelos para a Resposta Estruturada (Structured Data) ---
 
 class Period(BaseModel):
     start: str

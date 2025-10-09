@@ -1,35 +1,34 @@
-// src/components/StrategicDashboard.tsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Plane, Building2, Ticket, CheckCircle, Flame, Newspaper } from 'lucide-react';
+import { Loader2, AlertTriangle, TrendingUp, Plane, Building2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { mockStrategicAnalysis } from '../lib/mockData';
 
 interface City { id: string; name: string; }
 interface StrategicDashboardProps { city: City | null; periodInDays: number; }
 
-// Interface atualizada para receber a nova estrutura de dados do backend Python
 interface StrategicAnalysis {
     report_markdown: string;
     avg_competitor_realtime: number;
     avg_competitor_baseline: number;
     avg_flight_realtime: number;
-    avg_flight_baseline: number;
-    top_events: { title: string }[];
-    social_buzz_signals: { content: string; source: string; impact_score: number }[];
-    top_news: { title: string; source: string }[];
 }
 
-// Componente de cartão para exibir KPIs
-function InfoCard({ icon, title, value, change, changeType }: { icon: React.ReactNode, title: string, value: string, change: string | null, changeType: 'increase' | 'decrease' | 'neutral' }) {
-    const changeColor = changeType === 'increase' ? 'text-green-500' : 'text-red-500';
-    const ChangeIcon = changeType === 'increase' ? TrendingUp : TrendingDown;
+function KpiCard({ icon, title, value, change, changeType }: { icon: React.ReactNode, title: string, value: string, change: string, changeType: 'increase' | 'decrease' | 'neutral' }) {
+    const changeColor = changeType === 'increase' ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400';
     return (
-        <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col justify-between transition-all hover:shadow-lg hover:scale-105">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 flex items-center gap-6 border border-slate-200 dark:border-slate-700">
+            <div className="text-slate-500 dark:text-slate-500">{icon}</div>
             <div>
-                <div className="flex items-center gap-3"><div className="bg-slate-100 p-2 rounded-lg">{icon}</div><h3 className="font-semibold text-slate-700">{title}</h3></div>
-                <p className="text-4xl font-bold text-slate-800 mt-4">{value}</p>
+                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</h3>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1">{value}</p>
+                {changeType !== 'neutral' && (
+                    <div className={`mt-1 flex items-center text-sm font-semibold ${changeColor}`}>
+                        <TrendingUp className="h-4 w-4 mr-1" />
+                        <span>{change}</span>
+                    </div>
+                )}
             </div>
-            {change && changeType !== 'neutral' && <div className={`mt-3 flex items-center text-sm font-semibold ${changeColor}`}><ChangeIcon className="h-5 w-5 mr-1" /><span>{change}</span></div>}
         </div>
     );
 }
@@ -45,97 +44,48 @@ export const StrategicDashboard = ({ city, periodInDays }: StrategicDashboardPro
             if (!user || !city) return;
             setLoading(true); setError(null); setAnalysis(null);
             
-            const today = new Date();
-            const analysisStartDate = new Date(today);
-            // Ajusta a data de início para amanhã para previsões futuras
-            analysisStartDate.setDate(today.getDate() + 1); 
-            const analysisEndDate = new Date(analysisStartDate);
-            analysisEndDate.setDate(analysisStartDate.getDate() + (periodInDays - 1));
-
-            try {
-                // --- CHAMADA ATUALIZADA PARA A API PYTHON ---
-                const response = await fetch('http://localhost:8000/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        cityId: city.id,
-                        startDate: analysisStartDate.toISOString().split('T')[0],
-                        endDate: analysisEndDate.toISOString().split('T')[0],
-                        userId: user.id
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Falha ao comunicar com o motor de análise.');
-                }
-
-                const data = await response.json();
-                
-                // A estrutura da resposta da API Python contém 'analysis' e 'structured_data'
-                setAnalysis({
-                    ...data.structured_data,
-                    report_markdown: data.analysis.final_report
-                });
-
-            } catch (e: any) { setError(e.message); } finally { setLoading(false); }
+            setTimeout(() => {
+                try {
+                    const data = mockStrategicAnalysis;
+                    setAnalysis({
+                        ...data.structured_data,
+                        report_markdown: data.analysis.final_report
+                    });
+                } catch (e: any) { setError("Erro ao carregar dados simulados."); } 
+                finally { setLoading(false); }
+            }, 1500);
         };
         runAnalysis();
     }, [city, periodInDays, user]);
 
-    if (loading) { return <div className="text-center p-10 bg-white rounded-xl shadow-sm"><Loader2 className="animate-spin text-blue-600 h-10 w-10 mx-auto" /><p className="mt-4 text-slate-600">A contactar o motor de análise Python...</p></div>; }
-    if (error) { return <div className="p-6 bg-red-50 text-red-700 rounded-lg flex items-center gap-2 shadow-sm"><AlertTriangle />{error}</div>; }
-    if (!analysis) { return <div className="p-6 bg-white rounded-xl shadow-sm text-center"><p>Não foi possível obter a análise de mercado para este período.</p></div> }
+    if (loading) return <div className="text-center p-10 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700"><Loader2 className="animate-spin text-blue-600 dark:text-blue-500 h-10 w-10 mx-auto" /><p className="mt-4 text-slate-500 dark:text-slate-400">Analisando o mercado...</p></div>;
+    if (error) return <div className="p-6 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-lg flex items-center gap-2 border border-red-200 dark:border-red-500/20"><AlertTriangle />{error}</div>;
+    if (!analysis) return <div className="p-6 bg-white dark:bg-slate-800 rounded-2xl text-center border border-slate-200 dark:border-slate-700"><p>Não foi possível obter a análise.</p></div>
 
     const competitorChange = analysis.avg_competitor_realtime - analysis.avg_competitor_baseline;
     const competitorChangePercent = analysis.avg_competitor_baseline > 0 ? (competitorChange / analysis.avg_competitor_baseline) * 100 : 0;
     
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                <InfoCard 
-                    icon={<Building2 className="text-blue-600"/>} 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <KpiCard 
+                    icon={<Building2 size={32}/>} 
                     title="Preço Médio (Concorrência)" 
-                    value={analysis.avg_competitor_realtime > 0 ? `R$ ${analysis.avg_competitor_realtime.toFixed(2)}` : 'N/D'} 
-                    change={competitorChangePercent !== 0 ? `${competitorChangePercent.toFixed(1)}% vs. base mensal` : 'Estável'} 
-                    changeType={competitorChange > 0 ? 'increase' : (competitorChange < 0 ? 'decrease' : 'neutral')}
+                    value={`R$ ${analysis.avg_competitor_realtime.toFixed(2)}`}
+                    change={`${competitorChangePercent.toFixed(1)}% vs. base mensal`}
+                    changeType={competitorChange > 0 ? 'increase' : 'decrease'}
                 />
-                <InfoCard 
-                    icon={<Plane className="text-blue-600"/>} 
+                <KpiCard 
+                    icon={<Plane size={32}/>} 
                     title="Preço Médio (Voos SP)" 
-                    value={analysis.avg_flight_realtime > 0 ? `R$ ${analysis.avg_flight_realtime.toFixed(2)}` : 'N/D'} 
-                    change={null}
+                    value={`R$ ${analysis.avg_flight_realtime.toFixed(2)}`}
+                    change="dados em tempo real"
                     changeType={'neutral'}
                 />
             </div>
-             <div className="bg-white rounded-xl shadow-sm p-6 transition-all hover:shadow-lg">
-                 <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2"><Flame className="text-orange-500" /> Sinais de Demanda e Buzz Social</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 className="font-medium text-slate-600 mb-2 flex items-center gap-1.5"><Ticket size={16}/>Eventos e Buzz</h4>
-                        <ul className="space-y-2 text-sm">
-                            {(analysis.social_buzz_signals && analysis.social_buzz_signals.length > 0) 
-                                ? analysis.social_buzz_signals.map((signal, i) => (<li key={i} className="flex items-start gap-2"><CheckCircle className="text-green-500 h-4 w-4 mt-0.5 shrink-0" /><span className="text-slate-700">{signal.content}</span></li>)) 
-                                : <li className="text-slate-500 italic">Nenhum sinal de alto impacto detectado.</li>
-                            }
-                        </ul>
-                    </div>
-                     <div>
-                        <h4 className="font-medium text-slate-600 mb-2 flex items-center gap-1.5"><Newspaper size={16}/>Notícias Relevantes</h4>
-                        <ul className="space-y-2 text-sm">
-                            {(analysis.top_news && analysis.top_news.length > 0) 
-                                ? analysis.top_news.map((news, i) => (<li key={i} className="flex items-start gap-2"><CheckCircle className="text-green-500 h-4 w-4 mt-0.5 shrink-0" /><span className="text-slate-700">{news.title}</span></li>)) 
-                                : <li className="text-slate-500 italic">Nenhuma notícia de impacto recente.</li>
-                            }
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-6 transition-all hover:shadow-lg">
-                <h3 className="font-semibold text-slate-800 mb-3">Análise e Recomendação da IA</h3>
-                <article className="prose prose-slate max-w-none prose-h3:font-semibold prose-h3:text-slate-800 prose-p:text-slate-700 prose-strong:text-slate-900">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                <h3 className="font-semibold text-slate-800 dark:text-white mb-4 text-lg">Análise e Recomendação da IA</h3>
+                <article className="prose prose-slate dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-slate-400 prose-strong:text-slate-900 dark:prose-strong:text-white">
                     <ReactMarkdown>{analysis.report_markdown}</ReactMarkdown>
                 </article>
             </div>

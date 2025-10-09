@@ -4,14 +4,12 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  // A MÁGICA ACONTECE AQUI:
+  darkMode: 'class', 
   theme: {
-    extend: {
-      fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-      },
-    },
+    extend: {},
   },
   plugins: [
-    require('@tailwindcss/typography'),
+    require('@tailwindcss/typography'), // Adiciona suporte para a classe 'prose'
   ],
 }
